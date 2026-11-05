@@ -1,0 +1,134 @@
+name: opencode · revisão de PR
+
+# Revisão automática usando o caminho documentado no OpenCode V2:
+#   opencode run --standalone --archived  (ver https://opencode.ai/v2/docs/cli/commands)
+# O resultado é publicado como comentário único no PR (atualizado a cada push).
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+
+permissions:
+  contents: read
+  # Comentário de PR passa pela API de issues; sem `issues: write` o gh recebe 403.
+  issues: write
+  pull-requests: write
+
+concurrency:
+  group: opencode-review-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+env:
+  # Defina o repositório variável OPENCODE_MODEL (Settings > Variables).
+  # Ex.: anthropic/claude-sonnet-5-5 | openai/gpt-5 | opencode/gpt-5.5
+  MODEL: ${{ vars.OPENCODE_MODEL || 'anthropic/claude-sonnet-5-5' }}
+  OPENCODE_VERSION: "2.2.5"
+
+jobs:
+  review:
+    # PRs de fork não recebem secrets; pular evita job vermelho sem revisão.
+    if: >-
+      github.event.pull_request.draft == false &&
+      github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: "22"
+
+      - name: Instalar OpenCode CLI
+        run: npm install --global "@opencode/cli@${OPENCODE_VERSION}"
+
+      - name: Gerar diff do PR
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: |
+          git diff --no-color --stat "$BASE_SHA"...HEAD > pr-stat.txt
+          git diff --no-color "$BASE_SHA"...HEAD > pr.diff
+          echo "Arquivos alterados:" && cat pr-stat.txt
+
+      - name: Verificar credencial
+        id: creds
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          OPENCODE_API_KEY: ${{ secrets.OPENCODE_API_KEY }}
+        run: |
+          if [ -n "${ANTHROPIC_API_KEY}${OPENAI_API_KEY}${OPENCODE_API_KEY}" ]; then
+            echo "ok=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "ok=false" >> "$GITHUB_OUTPUT"
+            echo "::warning::Nenhuma API key configurada. Veja docs/SETUP.md (secrets)."
+          fi
+
+      - name: Revisar com OpenCode
+        id: review
+        if: steps.creds.outputs.ok == 'true'
+        continue-on-error: true
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          OPENCODE_API_KEY: ${{ secrets.OPENCODE_API_KEY }}
+        run: |
+          set -o pipefail
+          opencode run --standalone --archived --model "$MODEL" \
+            --file pr-stat.txt --file pr.diff \
+            "Você é o revisor automático deste repositório. Analise o diff do pull request anexado.
+
+          Regras:
+          - Responda em português do Brasil, em Markdown, com no máximo 600 palavras.
+          - Apenas revise: não edite arquivos, não faça commits, não comente no GitHub.
+          - Leia o arquivo completo quando o diff não bastar para entender o contexto.
+          - Cite sempre caminho/arquivo:linha.
+          - Classifique cada achado como [bloqueante], [importante] ou [sugestão].
+          - Verifique: erro de lógica, caso de borda, vazamento de dados (treino/teste),
+            aleatoriedade sem seed, segredo em código, dependência desnecessária,
+            falta de teste e notebook com saída gigante.
+          - Aponte o que precisa mudar, sem elogios e sem resumo genérico.
+          - Se não houver achado relevante, diga isso em uma linha." \
+            > review.md 2> review.err
+          echo "--- saída do modelo ---"
+          cat review.md
+          if [ -s review.err ]; then echo "--- stderr ---"; cat review.err; fi
+
+      - name: Publicar comentário
+        if: always()
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          PR: ${{ github.event.pull_request.number }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          if [ ! -s review.md ]; then
+            printf '⚠️ A revisão automática não produziu saída. Confira os logs do job e se o secret da API está configurado.\n' > review.md
+          fi
+
+          {
+            echo '<!-- opencode-review -->'
+            echo '## Revisão automática — OpenCode'
+            echo
+            printf '_Modelo: `%s` · commit: `%s`_\n\n' "$MODEL" "${HEAD_SHA:0:7}"
+            echo
+            cat review.md
+            echo
+            echo '<sub>Gerado por IA; verifique antes de aplicar. Para pedir mudanças, use <b>Actions → opencode · tarefa</b>.</sub>'
+          } > body.md
+
+          comment_id=$(gh api --paginate "repos/${REPO}/issues/${PR}/comments" \
+            --jq '.[] | select(.body | contains("<!-- opencode-review -->")) | .id' | tail -n 1)
+
+          if [ -n "$comment_id" ]; then
+            gh api --method PATCH "repos/${REPO}/issues/comments/${comment_id}" -F body=@body.md > /dev/null
+            echo "Comentário atualizado: $comment_id"
+          else
+            gh api --method POST "repos/${REPO}/issues/${PR}/comments" -F body=@body.md > /dev/null
+            echo "Comentário criado."
+          fi

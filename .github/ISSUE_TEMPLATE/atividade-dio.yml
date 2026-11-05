@@ -1,0 +1,39 @@
+name: Atividade DIO
+description: Registrar uma atividade da trilha Santander — Dados com Python e IA
+title: "[DIO] <módulo> — <tema>"
+labels: ["dio"]
+body:
+  - type: input
+    id: modulo
+    attributes:
+      label: Módulo da trilha
+      placeholder: "Ex.: Fundamentos de Python"
+    validations:
+      required: true
+
+  - type: textarea
+    id: objetivo
+    attributes:
+      label: Objetivo da atividade
+      description: O que precisa estar pronto para considerar a atividade concluída.
+    validations:
+      required: true
+
+  - type: textarea
+    id: criterios
+    attributes:
+      label: Critérios de aceite
+      value: |
+        - [ ] Notebook/script executando do início ao fim
+        - [ ] Teste ou validação automatizada
+        - [ ] Conclusões escritas (o que aprendi / próximos passos)
+    validations:
+      required: true
+
+  - type: input
+    id: link
+    attributes:
+      label: Link da atividade na DIO
+      placeholder: "https://web.dio.me/..."
+    validations:
+      required: false

@@ -1,0 +1,94 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+
+  // Modelo padrão do trabalho local. Troque por um modelo que você tenha acesso.
+  "model": "anthropic/claude-sonnet-5-5",
+
+  // Servidor MCP oficial do GitHub (remoto, autenticação por OAuth via /mcps).
+  "mcp": {
+    "servers": {
+      "github": {
+        "type": "remote",
+        "url": "https://api.githubcopilot.com/mcp/",
+      },
+    },
+  },
+
+  // Regras são avaliadas em ordem e a ÚLTIMA que casar vence.
+  // Sem regra correspondente, o padrão é "ask".
+  "permissions": [
+    // ---------- leitura de arquivos ----------
+    { "action": "read", "resource": "*", "effect": "allow" },
+    { "action": "read", "resource": "*.env", "effect": "deny" },
+    { "action": "read", "resource": "**/.env*", "effect": "deny" },
+    { "action": "read", "resource": "**/*.pem", "effect": "deny" },
+    { "action": "read", "resource": "**/*.key", "effect": "deny" },
+    { "action": "read", "resource": "**/id_rsa*", "effect": "deny" },
+    // O exemplo de variáveis é seguro e ajuda o agente a documentar o setup.
+    { "action": "read", "resource": ".env.example", "effect": "allow" },
+
+    // ---------- edição de arquivos ----------
+    // Liberado apenas nas pastas de trabalho do projeto.
+    { "action": "edit", "resource": "src/*", "effect": "allow" },
+    { "action": "edit", "resource": "tests/*", "effect": "allow" },
+    { "action": "edit", "resource": "notebooks/*", "effect": "allow" },
+    { "action": "edit", "resource": "docs/*", "effect": "allow" },
+    { "action": "edit", "resource": "scripts/*", "effect": "allow" },
+    { "action": "edit", "resource": "README.md", "effect": "allow" },
+    { "action": "edit", "resource": "AGENTS.md", "effect": "allow" },
+    // CI, configuração do agente e segredos exigem revisão humana.
+    { "action": "edit", "resource": ".github/*", "effect": "deny" },
+    { "action": "edit", "resource": "opencode.jsonc", "effect": "deny" },
+    { "action": "edit", "resource": "**/.env*", "effect": "deny" },
+    { "action": "edit", "resource": "pyproject.toml", "effect": "deny" },
+
+    // ---------- shell ----------
+    { "action": "shell", "resource": "*", "effect": "ask" },
+    // Inspeção e operações locais seguras
+    { "action": "shell", "resource": "git status*", "effect": "allow" },
+    { "action": "shell", "resource": "git diff*", "effect": "allow" },
+    { "action": "shell", "resource": "git log*", "effect": "allow" },
+    { "action": "shell", "resource": "git show*", "effect": "allow" },
+    { "action": "shell", "resource": "git branch*", "effect": "allow" },
+    { "action": "shell", "resource": "git add*", "effect": "allow" },
+    { "action": "shell", "resource": "git switch*", "effect": "allow" },
+    // Python via uv (evita depender do Python global)
+    { "action": "shell", "resource": "uv *", "effect": "allow" },
+    { "action": "shell", "resource": "python -m pytest*", "effect": "allow" },
+    { "action": "shell", "resource": "python -m ruff*", "effect": "allow" },
+    { "action": "shell", "resource": "pytest*", "effect": "allow" },
+    { "action": "shell", "resource": "ruff *", "effect": "allow" },
+    // Operações destrutivas ou com efeito externo: sempre bloqueadas
+    { "action": "shell", "resource": "git push*", "effect": "deny" },
+    { "action": "shell", "resource": "git reset --hard*", "effect": "deny" },
+    { "action": "shell", "resource": "git clean*", "effect": "deny" },
+    { "action": "shell", "resource": "git rebase*", "effect": "deny" },
+    { "action": "shell", "resource": "rm -rf*", "effect": "deny" },
+    { "action": "shell", "resource": "sudo*", "effect": "deny" },
+    { "action": "shell", "resource": "curl*", "effect": "deny" },
+    { "action": "shell", "resource": "wget*", "effect": "deny" },
+    { "action": "shell", "resource": "env", "effect": "deny" },
+    { "action": "shell", "resource": "printenv*", "effect": "deny" },
+    { "action": "shell", "resource": "gh pr merge*", "effect": "deny" },
+    { "action": "shell", "resource": "gh secret*", "effect": "deny" },
+
+    // ---------- rede ----------
+    { "action": "webfetch", "resource": "*", "effect": "ask" },
+    { "action": "webfetch", "resource": "https://docs.python.org/*", "effect": "allow" },
+    { "action": "webfetch", "resource": "https://pandas.pydata.org/*", "effect": "allow" },
+    { "action": "webfetch", "resource": "https://numpy.org/*", "effect": "allow" },
+    { "action": "webfetch", "resource": "https://scikit-learn.org/*", "effect": "allow" },
+    { "action": "webfetch", "resource": "https://matplotlib.org/*", "effect": "allow" },
+    { "action": "webfetch", "resource": "https://web.dio.me/*", "effect": "allow" },
+    { "action": "webfetch", "resource": "https://opencode.ai/*", "effect": "allow" },
+    { "action": "webfetch", "resource": "https://docs.github.com/*", "effect": "allow" },
+    { "action": "webfetch", "resource": "https://raw.githubusercontent.com/*", "effect": "allow" },
+    { "action": "webfetch", "resource": "https://github.com/*", "effect": "allow" },
+
+    // Busca na web e subagentes: liberados para não travar o fluxo local.
+    { "action": "websearch", "resource": "*", "effect": "allow" },
+    { "action": "subagent", "resource": "*", "effect": "allow" },
+
+    // Ferramentas MCP (ex.: github_*) ficam sem regra: o padrão "ask" vale.
+  ],
+}

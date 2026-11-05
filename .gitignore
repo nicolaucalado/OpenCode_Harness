@@ -1,0 +1,35 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+build/
+dist/
+.venv/
+venv/
+
+# Ferramentas
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.ipynb_checkpoints/
+*.log
+
+# Segredos e ambiente
+.env
+.env.*
+!.env.example
+
+# Dados (ver data/README.md)
+data/raw/
+data/processed/
+
+# OpenCode / artefatos locais do harness
+review.md
+review.err
+pr.diff
+pr-stat.txt
+
+# Sistema
+.DS_Store
+Thumbs.db
+desktop.ini

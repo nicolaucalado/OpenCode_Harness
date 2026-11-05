@@ -1,0 +1,109 @@
+name: opencode · tarefa
+
+# Agente sob demanda: você descreve a tarefa na aba Actions, o OpenCode edita
+# os arquivos e o próprio workflow cria branch, commit e PR.
+# Só o dono/admin do repositório consegue disparar (workflow_dispatch).
+#
+# O push é feito pelo workflow, não pelo agente: opencode.jsonc bloqueia
+# `git push` dentro da sessão (defesa em profundidade).
+
+on:
+  workflow_dispatch:
+    inputs:
+      tarefa:
+        description: "O que o agente deve fazer (ex.: implementar o desafio de detecção de anomalias)"
+        required: true
+        type: string
+      branch:
+        description: "Nome da branch que será criada"
+        required: false
+        default: "opencode/tarefa"
+        type: string
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: opencode-task
+  cancel-in-progress: false
+
+env:
+  MODEL: ${{ vars.OPENCODE_MODEL || 'anthropic/claude-sonnet-5-5' }}
+  OPENCODE_VERSION: "2.2.5"
+
+jobs:
+  executar:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: "22"
+
+      - name: Instalar OpenCode CLI
+        run: npm install --global "@opencode/cli@${OPENCODE_VERSION}"
+
+      - name: Configurar git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+      - name: Executar tarefa
+        env:
+          TAREFA: ${{ inputs.tarefa }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          OPENCODE_API_KEY: ${{ secrets.OPENCODE_API_KEY }}
+        run: |
+          opencode run --standalone --archived --auto --model "$MODEL" \
+            "Tarefa solicitada pelo mantenedor do repositório:
+
+          ${TAREFA}
+
+          Regras:
+          - Trabalhe apenas dentro de src/, tests/, notebooks/, docs/, scripts/ e README.md.
+          - Não altere .github/, opencode.jsonc nem pyproject.toml.
+          - Rode 'uv run ruff format .', 'uv run ruff check .' e 'uv run pytest -q' antes de terminar.
+          - Se algo for ambíguo, implemente a opção mais simples e explique no final.
+          - Termine com um resumo curto das mudanças e do que não foi feito."
+
+      - name: Abrir pull request
+        if: success()
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAREFA: ${{ inputs.tarefa }}
+          BRANCH_IN: ${{ inputs.branch }}
+        run: |
+          if [ -z "$(git status --porcelain)" ]; then
+            echo "Nenhuma mudança produzida; nada a publicar."
+            exit 0
+          fi
+
+          BRANCH=$(printf '%s' "$BRANCH_IN" | tr -c 'a-zA-Z0-9/_-' '-')
+          TITULO=$(printf '%s' "$TAREFA" | head -n 1 | cut -c1-60)
+
+          git switch -C "$BRANCH"
+          git add -A
+          git commit -m "feat: ${TITULO}" -m "$TAREFA"
+          git push --set-upstream origin "$BRANCH"
+
+          gh pr create \
+            --title "opencode: ${TITULO}" \
+            --body "PR criado pelo workflow \`opencode · tarefa\`.
+
+          **Tarefa:** ${TAREFA}
+
+          Revise o diff antes de fazer merge. A revisão automática roda neste PR." \
+            --base "${{ github.event.repository.default_branch }}"
+
+      - name: Resumo
+        if: always()
+        run: echo "Concluído com status ${{ job.status }}. Veja os logs acima."
