@@ -153,6 +153,10 @@ gh secret set GEMINI_API_KEY
 
 Pela web: **Settings → Secrets and variables → Actions**.
 
+> `gh secret set` sem `--body` abre um **prompt interativo** (ou um editor). Se você pedir ao Copilot
+> para rodar isso, ele não consegue digitar no prompt — prefira a interface web, ou rode você mesmo
+> no terminal. O mesmo vale para `gh auth login` (abre o navegador).
+
 | Secret | Quando usar |
 |---|---|
 | `GROQ_API_KEY` | **default** — modelo `groq/...` (free: 1.000 req/dia) |

@@ -3,18 +3,31 @@
 Use no **Copilot Chat em modo agente** (VS Code) ou no **Copilot coding agent** (github.com).
 Ele foi escrito para terminar a publicação do repositório e validar o fluxo de revisão.
 
+## Onde cada coisa roda
+
+| O quê | Onde | Por quê |
+|---|---|---|
+| Comandos `git`, `gh`, `uv`, `npm` | **terminal** (PowerShell) | precisam de acesso ao disco e à rede |
+| Criar/ver a chave da Groq | **console.groq.com/keys** | a chave nasce lá; **nunca** cole a chave no chat |
+| Cadastrar a chave como secret | **Settings → Secrets and variables → Actions** (web) | `gh secret set` é interativo e o Copilot não digita no prompt |
+| Revisão automática de PR | **GitHub Actions** | é o workflow que roda o OpenCode |
+| Colar este prompt | **Copilot Chat (agente)** ou **coding agent** | ele executa os comandos por você |
+
+> O console da Groq **não** recebe código, prompt nem comandos. Ele só serve para gerar a API key.
+
 Antes de colar, troque:
 
 - `<CAMINHO>` → `C:\Users\nicol\OneDrive\Documents\Projeto Padrão\OpenCode_Harness`
-- `<MODELO>` → ex.: `anthropic/claude-sonnet-5-5`
-- `<SECRET>` → `ANTHROPIC_API_KEY`, `OPENAI_API_KEY` ou `OPENCODE_API_KEY`
+- `<MODELO>` → `groq/openai/gpt-oss-120b` (default) ou outro de [`PROVIDERS.md`](./PROVIDERS.md)
+- `<FALLBACK>` → `google/gemini-2.5-flash` (default)
+- `<SECRET>` → `GROQ_API_KEY`, `GEMINI_API_KEY` ou `OPENCODE_API_KEY`
 
 ---
 
 ```text
 Contexto: tenho um repositório local em <CAMINHO> chamado OpenCode_Harness. Ele já contém
 - opencode.jsonc (permissões restritas + MCP remoto do GitHub)
-- .github/workflows/opencode-review.yml (revisão automática de PR via `opencode run`)
+- .github/workflows/opencode-review.yml (revisão automática de PR via `opencode run`, com fallback de modelo)
 - .github/workflows/opencode-task.yml (agente sob demanda, cria branch e PR)
 - .github/workflows/ci.yml (ruff + pytest)
 - pyproject.toml, uv.lock, src/, tests/, notebooks/, docs/
@@ -22,17 +35,23 @@ Contexto: tenho um repositório local em <CAMINHO> chamado OpenCode_Harness. Ele
 Objetivo: publicar em https://github.com/nicolaucalado/OpenCode_Harness e deixar a revisão
 automática de PR funcionando de ponta a ponta.
 
-Execute, em ordem, pedindo minha confirmação apenas nos passos marcados [CONFIRMAR]:
+Execute, em ordem, pedindo minha confirmação apenas nos passos marcados [CONFIRMAR].
+Quando um passo exigir interação humana (login no navegador ou digitar um secret), PARE
+e me peça para fazer — não tente contornar.
 
 1. Verifique `git --version`, `python --version`, `uv --version`. Se `gh` não existir, instale com
-   `winget install --id GitHub.cli -e` e peça para eu reabrir o terminal. Rode `gh auth status`.
+   `winget install --id GitHub.cli -e` e peça para eu reabrir o terminal. Rode `gh auth status`
+   e, se não estiver autenticado, pare e me peça para rodar `gh auth login`.
 2. Rode `uv sync`, `uv run ruff check .` e `uv run pytest -q`. Corrija somente o que estiver quebrado,
    sem mudar o escopo do projeto.
 3. [CONFIRMAR] Crie o repositório remoto: `gh repo create nicolaucalado/OpenCode_Harness --public
    --source . --remote origin --push`. Se eu preferir privado, use `--private`.
-4. Configure a variable e o secret do Actions, sem nunca imprimir o valor do secret:
+4. Configure a variable de modelo:
    `gh variable set OPENCODE_MODEL --body "<MODELO>"`
-   `gh secret set <SECRET>` (o valor eu digito no prompt interativo).
+   `gh variable set OPENCODE_MODEL_FALLBACK --body "<FALLBACK>"`
+   Para os secrets (<SECRET> e GEMINI_API_KEY), NÃO rode `gh secret set` sem valor: ele abre um
+   prompt interativo. Me avise para cadastrar em Settings → Secrets and variables → Actions,
+   ou me peça para rodar no terminal com o valor vindo de uma variável de ambiente.
 5. Crie a branch `dio/teste-harness`, marque uma linha da tabela de checklist em
    docs/DIO-ROADMAP.md como concluída, faça commit com mensagem convencional, push e abra PR com
    `gh pr create --fill`.
@@ -47,6 +66,7 @@ Execute, em ordem, pedindo minha confirmação apenas nos passos marcados [CONFI
 Regras de segurança:
 - Nunca comite .env, credenciais ou dados brutos.
 - Nunca ecoe tokens, secrets ou o conteúdo de variáveis de ambiente com segredo.
+- Nunca peça para eu colar a API key no chat.
 - Não faça merge, não force push e não altere permissões do repositório.
 - Se algo divergir da documentação oficial do OpenCode V2 (https://opencode.ai/v2/docs/),
   pare e me avise em vez de improvisar.
@@ -68,6 +88,9 @@ uv run pytest -q antes de abrir o PR. Não altere .github/ nem opencode.jsonc.
 ## Limites
 
 - O Copilot no VS Code precisa de acesso ao terminal para rodar os comandos; no modo "ask" ele só sugere.
-- O coding agent do github.com trabalha em uma branch remota e abre PR — os secrets do repositório já valem lá,
-  mas ele **não** substitui a instalação local do CLI nem o login do MCP.
+- Passos interativos (`gh auth login`, `gh secret set` sem `--body`, editor de commit) travam ou falham
+  no agente: faça você mesmo ou use a interface web.
+- O coding agent do github.com trabalha em uma branch remota e abre PR — os secrets do repositório já
+  valem lá, mas ele **não** substitui a instalação local do CLI nem o login do MCP, e não tem acesso
+  aos seus arquivos locais antes do primeiro push.
 - Este prompt não instala nada sem passar pelo `winget`/`npm`; revise os comandos antes de aprovar.
