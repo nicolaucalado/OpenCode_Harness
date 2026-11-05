@@ -24,6 +24,7 @@ Este repositório usa **duas licenças**, com escopo bem separado:
 
 ## Boas práticas ao publicar um modelo
 
+0. Copie `models/_template/` para `models/<nome-do-modelo>/` e preencha o card.
 1. Crie `models/<nome-do-modelo>/` com `README.md` contendo: dataset usado, hiperparâmetros, métricas e a
    licença do modelo base.
 2. Não versione arquivos grandes no git comum — use **Git LFS** ou publique como *release* e referencie a URL.

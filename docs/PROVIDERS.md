@@ -34,6 +34,31 @@ comentário quando isso acontece. PRs gigantes recebem revisão parcial.
 > assinatura com uso incluído (Go). Para um harness pessoal, a cota da Groq é a que tem melhor relação
 > entre documentação, volume e zero custo.
 
+## Fallback automático (Groq → Gemini)
+
+O workflow de review tenta o modelo primário e, se ele falhar (429, indisponibilidade, timeout),
+repete com o fallback **sem duplicar o comentário**:
+
+| Variable | Default |
+|---|---|
+| `OPENCODE_MODEL` | `groq/openai/gpt-oss-120b` |
+| `OPENCODE_MODEL_FALLBACK` | `google/gemini-2.5-flash` |
+
+```powershell
+gh variable set OPENCODE_MODEL --body "groq/openai/gpt-oss-120b"
+gh variable set OPENCODE_MODEL_FALLBACK --body "google/gemini-2.5-flash"
+gh secret set GROQ_API_KEY
+gh secret set GEMINI_API_KEY
+```
+
+O provider `google` do catálogo do OpenCode aceita `GEMINI_API_KEY` (também aceita `GOOGLE_API_KEY` e
+`GOOGLE_GENERATIVE_AI_API_KEY`). O modelo `google/gemini-2.5-flash` tem 1M de contexto e free tier
+próprio — por isso é o fallback natural para diffs grandes ou quando a cota da Groq acaba.
+
+Limitação: as duas tentativas usam o **mesmo diff truncado** em 24 KB. Se quiser aproveitar o contexto
+maior do Gemini, aumente `MAX_DIFF_BYTES` no workflow (mas aí a Groq pode passar do TPM de 8.000 e cair
+justamente no fallback).
+
 ## Como trocar de provider
 
 O modelo vem da variable `OPENCODE_MODEL` e a chave do secret correspondente:

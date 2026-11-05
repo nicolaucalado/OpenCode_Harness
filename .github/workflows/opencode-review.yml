@@ -22,6 +22,8 @@ env:
   # Defina o repositório variável OPENCODE_MODEL (Settings > Variables).
   # Default: Groq free (30 RPM, 1.000 req/dia, 8K TPM). Ver docs/PROVIDERS.md.
   MODEL: ${{ vars.OPENCODE_MODEL || 'groq/openai/gpt-oss-120b' }}
+  # Fallback automático se o primário falhar (429, indisponibilidade, timeout).
+  MODEL_FALLBACK: ${{ vars.OPENCODE_MODEL_FALLBACK || 'google/gemini-2.5-flash' }}
   OPENCODE_VERSION: "2.2.5"
   # 24 KB ≈ 6 mil tokens: mantém a requisição abaixo do TPM de 8.000 da Groq.
   MAX_DIFF_BYTES: "24000"
@@ -68,12 +70,13 @@ jobs:
         id: creds
         env:
           GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           OPENCODE_API_KEY: ${{ secrets.OPENCODE_API_KEY }}
           OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
         run: |
-          if [ -n "${GROQ_API_KEY}${ANTHROPIC_API_KEY}${OPENAI_API_KEY}${OPENCODE_API_KEY}${OPENROUTER_API_KEY}" ]; then
+          if [ -n "${GROQ_API_KEY}${GEMINI_API_KEY}${ANTHROPIC_API_KEY}${OPENAI_API_KEY}${OPENCODE_API_KEY}${OPENROUTER_API_KEY}" ]; then
             echo "ok=true" >> "$GITHUB_OUTPUT"
           else
             echo "ok=false" >> "$GITHUB_OUTPUT"
@@ -86,15 +89,16 @@ jobs:
         continue-on-error: true
         env:
           GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           OPENCODE_API_KEY: ${{ secrets.OPENCODE_API_KEY }}
           OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
         run: |
           set -o pipefail
-          opencode run --standalone --archived --model "$MODEL" \
-            --file pr-stat.txt --file pr.diff \
-            "Você é o revisor automático deste repositório. Analise o diff do pull request anexado.
+
+          PROMPT=$(cat <<'EOF'
+          Você é o revisor automático deste repositório. Analise o diff do pull request anexado.
 
           Regras:
           - Responda em português do Brasil, em Markdown, com no máximo 600 palavras.
@@ -107,8 +111,28 @@ jobs:
             falta de teste e notebook com saída gigante.
           - Aponte o que precisa mudar, sem elogios e sem resumo genérico.
           - Se o diff estiver truncado (aviso no final), diga que a análise é parcial.
-          - Se não houver achado relevante, diga isso em uma linha." \
-            > review.md 2> review.err
+          - Se não houver achado relevante, diga isso em uma linha.
+          EOF
+          )
+
+          revisar() {
+            opencode run --standalone --archived --model "$1" \
+              --file pr-stat.txt --file pr.diff "$PROMPT" > review.md 2> review.err
+          }
+
+          if revisar "$MODEL" && [ -s review.md ]; then
+            echo "::notice::Revisão gerada com $MODEL"
+          else
+            echo "::warning::Falha com $MODEL; tentando fallback $MODEL_FALLBACK"
+            rm -f review.md review.err
+            if revisar "$MODEL_FALLBACK" && [ -s review.md ]; then
+              echo "::notice::Revisão gerada com fallback $MODEL_FALLBACK"
+            else
+              echo "::error::Nenhum modelo produziu revisão (primário e fallback falharam)"
+              exit 1
+            fi
+          fi
+
           echo "--- saída do modelo ---"
           cat review.md
           if [ -s review.err ]; then echo "--- stderr ---"; cat review.err; fi

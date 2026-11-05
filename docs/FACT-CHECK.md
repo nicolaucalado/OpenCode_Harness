@@ -38,6 +38,8 @@ oficial; o que não deu para confirmar está marcado como incerteza.
 | 24 | Modelos `*-free` do OpenCode Console exigem o cliente OpenCode; outros harnesses recebem 403 | <https://opencode.ai/v2/docs/console/models/> | ✅ |
 | 25 | Limites de requisição do free tier do Console **não estão documentados** na página de modelos | idem (busca por “rate limit” sem resultado) | ⚠️ não documentado |
 | 26 | OpenRouter free: 20 RPM; 50 req/dia com menos de US$10 em créditos e 1.000/dia acima disso | <https://openrouter.ai/docs/api-reference/limits> | ⚠️ tabela não renderizou no fetch; valores usuais — confirme na página |
+| 27 | Provider `google` do catálogo aceita `GEMINI_API_KEY` e o modelo `google/gemini-2.5-flash` existe (1M de contexto) | <https://models.dev/api.json> (`providers.google`) | ✅ |
+| 28 | Provider `groq` aceita `GROQ_API_KEY` e expõe `openai/gpt-oss-120b` | idem (`providers.groq`) | ✅ |
 
 ## Não verificado / decisão consciente
 
