@@ -44,8 +44,11 @@ OpenCode_Harness/
 ├── notebooks/                      # entregas da DIO
 ├── src/opencode_harness/           # código testável
 ├── tests/
+├── models/                         # pesos/artefatos (Apache 2.0)
 ├── data/                           # dados (fora do git)
 ├── AGENTS.md                       # regras que o agente lê
+├── LICENSE                         # MIT (código e docs)
+├── LICENSE-MODELS                  # Apache 2.0 (modelos treinados)
 ├── opencode.jsonc                  # modelo, MCP e permissões
 └── pyproject.toml
 ```
@@ -86,7 +89,10 @@ issue ──► branch dio/<modulo>-<tema> ──► notebook + src/ + tests/
 ```
 
 - A revisão usa `opencode run --standalone` (caminho documentado no V2), com o modelo da variable
-  `OPENCODE_MODEL` e a chave do secret do provider.
+  `OPENCODE_MODEL` — default `groq/openai/gpt-oss-120b`, free com 1.000 req/dia — e a chave no secret
+  `GROQ_API_KEY`.
+- O diff é truncado em 24 KB para caber no limite de tokens/minuto do free tier; o comentário avisa quando
+  a revisão é parcial.
 - O comentário é **único**: cada push atualiza o mesmo comentário (marcador `<!-- opencode-review -->`).
 - PRs de fork e drafts são pulados de propósito — fork não recebe secrets.
 
@@ -126,7 +132,7 @@ no fluxo de tarefa é feito pelo **workflow**, não pelo agente.
 - PR vindo de fork não recebe revisão automática (sem secrets).
 - A GitHub Action oficial (`anomalyco/opencode/github`) não foi usada: ela executa `opencode github run`,
   comando ausente na lista do CLI V2. Detalhes em [docs/FACT-CHECK.md](docs/FACT-CHECK.md).
-- Licença ainda não definida — escolha uma antes de divulgar o repositório.
+- Licença dupla: **MIT** para código/documentação e **Apache 2.0** para modelos treinados — veja abaixo.
 
 ## Bootcamp
 
@@ -141,6 +147,14 @@ no fluxo de tarefa é feito pelo **workflow**, não pelo agente.
 | [SETUP.md](docs/SETUP.md) | instalação, secrets, publicação, troubleshooting |
 | [GITHUB-MCP.md](docs/GITHUB-MCP.md) | MCP do GitHub, OAuth vs PAT, exemplos |
 | [DIO-ROADMAP.md](docs/DIO-ROADMAP.md) | trilha, plano de 8 semanas, critérios de portfólio |
+| [PROVIDERS.md](docs/PROVIDERS.md) | comparação de custo/limite e troca de modelo |
 | [DADOS.md](docs/DADOS.md) | origem e licença dos datasets |
 | [FACT-CHECK.md](docs/FACT-CHECK.md) | o que foi verificado, o que é incerteza |
 | [COPILOT-PROMPT.md](docs/COPILOT-PROMPT.md) | prompt para terminar o setup com o Copilot |
+
+## Licença
+
+- **Código-fonte, notebooks, workflows e documentação:** [MIT](LICENSE).
+- **Pesos/artefatos de modelos treinados (`models/`):** [Apache 2.0](LICENSE-MODELS).
+
+Os detalhes de escopo e as obrigações ao publicar um modelo estão em [models/README.md](models/README.md).

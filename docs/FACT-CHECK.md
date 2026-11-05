@@ -28,13 +28,24 @@ oficial; o que não deu para confirmar está marcado como incerteza.
 | 14 | Data de início do bootcamp | A página da Santander Open Academy cita **03/11/2026–31/12/2026**; um trecho de outra chamada cita **20/10/2026–20/12/2026** | `docs/DIO-ROADMAP.md` usa 03/11–31/12 e manda confirmar no edital |
 | 15 | Nome/estrutura dos módulos | A DIO não expõe a lista final de módulos em HTML estático (SPA); o conteúdo só aparece logado | Roadmap usa os pilares divulgados publicamente, não nomes oficiais de módulo |
 
+## Providers (analisados em 04/11/2026)
+
+| # | Afirmação | Fonte | Status |
+|---|---|---|---|
+| 21 | **GitHub Models foi desativado em 30/07/2026** (playground, catálogo e API) | <https://docs.github.com/en/github-models/use-github-models/prototyping-with-ai-models> | ✅ (por isso não é opção) |
+| 22 | Groq free: `openai/gpt-oss-120b` tem 30 RPM · 1.000 RPD · 8K TPM · 200K TPD | <https://console.groq.com/docs/rate-limits> | ✅ |
+| 23 | Groq documenta o OpenCode como cliente e recomenda `openai/gpt-oss-120b` | <https://console.groq.com/docs/coding-with-groq/opencode> | ✅ |
+| 24 | Modelos `*-free` do OpenCode Console exigem o cliente OpenCode; outros harnesses recebem 403 | <https://opencode.ai/v2/docs/console/models/> | ✅ |
+| 25 | Limites de requisição do free tier do Console **não estão documentados** na página de modelos | idem (busca por “rate limit” sem resultado) | ⚠️ não documentado |
+| 26 | OpenRouter free: 20 RPM; 50 req/dia com menos de US$10 em créditos e 1.000/dia acima disso | <https://openrouter.ai/docs/api-reference/limits> | ⚠️ tabela não renderizou no fetch; valores usuais — confirme na página |
+
 ## Não verificado / decisão consciente
 
 | # | Ponto | Situação |
 |---|---|---|
 | 16 | GitHub Action oficial `anomalyco/opencode/github@latest` | Ela existe no tag `latest`, instala o CLI via `curl https://opencode.ai/install` e executa **`opencode github run`**. Esse subcomando **não aparece** na lista de comandos do CLI V2 e não há página `/v2/docs/github` (404 em 04/11/2026). Por isso o review daqui **não usa a Action**: usa `opencode run`, que é documentado no V2. Se quiser testar a Action, valide em uma branch antes. |
 | 17 | `opencode github install` | Documentado apenas na doc V1 (`/docs/github`), ausente da lista V2. Não é necessário para este setup. |
-| 18 | Nome exato da variável de ambiente por provider | `ANTHROPIC_API_KEY` é o caso documentado no exemplo de CI do V2. Para `openai/...` e `opencode/...` o workflow passa `OPENAI_API_KEY` e `OPENCODE_API_KEY`, mas **confirme no seu provider** antes de confiar no job. |
+| 18 | Free tier do Console dentro do CI | A doc diz que modelos free exigem o cliente OpenCode; `opencode run` é o cliente, então **deve** funcionar, mas os limites não são públicos. Teste com `opencode run --model opencode/deepseek-v4.1-flash-free "ok"` antes de trocar. |
 | 19 | `uv` como package-ecosystem do Dependabot | Suportado pelo Dependabot, mas pode variar por plano/conta. Se o bot não abrir PRs, troque para `pip` com `directory: "/"`. |
 | 20 | Custo real por revisão | Depende do modelo e do tamanho do diff. Um PR grande pode consumir muitos tokens; o timeout do job é 20 min. |
 

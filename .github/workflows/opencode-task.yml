@@ -29,7 +29,7 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  MODEL: ${{ vars.OPENCODE_MODEL || 'anthropic/claude-sonnet-5-5' }}
+  MODEL: ${{ vars.OPENCODE_MODEL || 'groq/openai/gpt-oss-120b' }}
   OPENCODE_VERSION: "2.2.5"
 
 jobs:
@@ -59,9 +59,11 @@ jobs:
       - name: Executar tarefa
         env:
           TAREFA: ${{ inputs.tarefa }}
+          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           OPENCODE_API_KEY: ${{ secrets.OPENCODE_API_KEY }}
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
         run: |
           opencode run --standalone --archived --auto --model "$MODEL" \
             "Tarefa solicitada pelo mantenedor do repositório:

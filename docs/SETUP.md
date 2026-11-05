@@ -69,17 +69,23 @@ uv run python -m ipykernel install --user --name opencode-harness --display-name
 
 ## 3. Autenticar o OpenCode no provider
 
+O default do projeto é **Groq (free)**, com o modelo `groq/openai/gpt-oss-120b` (1.000 req/dia).
+Crie a key em <https://console.groq.com/keys> e conecte:
+
 ```powershell
-opencode auth login
+opencode auth login   # escolha Groq
 ```
 
-Escolha o provider (Anthropic, OpenAI, OpenCode Zen…) e conclua no navegador. Confira:
+Ou, dentro do OpenCode, `/connect` → Groq → cole a key.
+
+Confira:
 
 ```powershell
 opencode models
+opencode run --model groq/openai/gpt-oss-120b "responda apenas: ok"
 ```
 
-Ajuste o `model` do `opencode.jsonc` para o modelo que você realmente tem acesso.
+Alternativas (OpenRouter, Gemini, Zen free, Go) e seus limites: [`PROVIDERS.md`](./PROVIDERS.md).
 
 ---
 
@@ -139,17 +145,21 @@ A revisão usa o modelo definido na **variable** `OPENCODE_MODEL` e a chave no *
 Com `gh` (ele pergunta o valor sem deixar rastro no histórico):
 
 ```powershell
-gh variable set OPENCODE_MODEL --body "anthropic/claude-sonnet-5-5"
-gh secret set ANTHROPIC_API_KEY
+gh variable set OPENCODE_MODEL --body "groq/openai/gpt-oss-120b"
+gh secret set GROQ_API_KEY
 ```
 
 Pela web: **Settings → Secrets and variables → Actions**.
 
 | Secret | Quando usar |
 |---|---|
-| `ANTHROPIC_API_KEY` | modelo `anthropic/...` |
-| `OPENAI_API_KEY` | modelo `openai/...` |
-| `OPENCODE_API_KEY` | modelo `opencode/...` (OpenCode Zen/Console) |
+| `GROQ_API_KEY` | **default** — modelo `groq/...` (free: 1.000 req/dia) |
+| `OPENCODE_API_KEY` | modelo `opencode/...` (Zen free ou Console pago) |
+| `OPENROUTER_API_KEY` | modelo `openrouter/...:free` |
+| `ANTHROPIC_API_KEY` | modelo `anthropic/...` (pago por token) |
+| `OPENAI_API_KEY` | modelo `openai/...` (pago por token) |
+
+Análise de custo/limite de cada opção: [`PROVIDERS.md`](./PROVIDERS.md).
 
 Se você usar o Console em equipe/CI, prefira uma **service account key** (`oc_sk_...`) em vez de chave pessoal.
 
@@ -187,6 +197,7 @@ Para pedir uma implementação ao agente: **Actions → opencode · tarefa → R
 | review em PR de fork não roda | secrets não são expostos a forks | esperado; faça review manual |
 | `opencode mcp list` sem `github` | rodou fora da pasta do projeto | execute dentro de `OpenCode_Harness` |
 | MCP `needs authentication` | OAuth pendente | `/mcps` → github → sign in |
+| review falha com `429` | cota do provider estourada | espere o reset ou troque `OPENCODE_MODEL` (ver `PROVIDERS.md`) |
 | CI falha em `uv sync --frozen` | `uv.lock` desatualizado | `uv lock` e commite |
 | `git push` negado dentro do agente | permissão `deny` proposital | faça o push você mesmo |
 
@@ -196,4 +207,5 @@ Para pedir uma implementação ao agente: **Actions → opencode · tarefa → R
 
 - [`DIO-ROADMAP.md`](./DIO-ROADMAP.md): mapa da trilha e como usar o harness em cada módulo.
 - [`GITHUB-MCP.md`](./GITHUB-MCP.md): o que dá para fazer com o MCP do GitHub.
+- [`PROVIDERS.md`](./PROVIDERS.md): comparação de custo/limite e como trocar de modelo.
 - [`FACT-CHECK.md`](./FACT-CHECK.md): fontes e incertezas do que está configurado aqui.
