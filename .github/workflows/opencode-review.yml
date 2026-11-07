@@ -24,14 +24,17 @@ env:
   # Defina as variables do repositório (Settings > Variables) para trocar de modelo.
   # Primário: Gemini 3.8 Flash (1M de contexto, free tier). Ver docs/PROVIDERS.md.
   MODEL: ${{ vars.OPENCODE_MODEL || 'google/gemini-3.8-flash' }}
-  # Fallback: Groq (30 RPM, 1.000 req/dia, 8K TPM) — só recebe diff pequeno.
-  MODEL_FALLBACK: ${{ vars.OPENCODE_MODEL_FALLBACK || 'groq/openai/gpt-oss-120b' }}
+  # 1º fallback: outro Gemini, para quando o primário estiver em "high demand".
+  MODEL_FALLBACK: ${{ vars.OPENCODE_MODEL_FALLBACK || 'google/gemini-3-flash-preview' }}
+  # 2º fallback: Groq (30 RPM, 1.000 req/dia, 8K TPM) — só recebe diff pequeno.
+  MODEL_FALLBACK2: ${{ vars.OPENCODE_MODEL_FALLBACK2 || 'groq/openai/gpt-oss-120b' }}
   OPENCODE_VERSION: "2.2.5"
   # Medido no PR #3: 24 KB de diff pediram 13.473 tokens (limite Groq: 8.000 TPM),
   # porque o CLI envia também o system prompt e as definições de ferramentas.
   MAX_DIFF_BYTES: "80000"
-  # Diff usado por modelos com TPM baixo (Groq free): ~2 mil tokens + system prompt.
-  SMALL_DIFF_BYTES: "6000"
+  # Diff usado por modelos com TPM baixo (Groq free: 8.000 TPM). Medido: ~6k tokens de
+  # system prompt/ferramentas + diff. 3 KB deixa margem para não estourar.
+  SMALL_DIFF_BYTES: "3000"
 
 jobs:
   review:
@@ -142,8 +145,14 @@ jobs:
             arquivo=$(diff_para "$modelo")
             : > review.md
             : > review.err
+            # Estado isolado por tentativa: sem isso o fallback herda a sessão anterior
+            # (e o contexto cresce até estourar o TPM do provider).
+            estado=$(mktemp -d)
+            mkdir -p "$estado/data" "$estado/state" "$estado/cache"
             echo "Tentando $modelo com $arquivo ($(wc -c < "$arquivo") bytes)"
-            if ! opencode run --standalone --model "$modelo" \
+            if ! XDG_DATA_HOME="$estado/data" XDG_STATE_HOME="$estado/state" \
+              XDG_CACHE_HOME="$estado/cache" \
+              timeout 240 opencode run --standalone --model "$modelo" \
               --file pr-stat.txt --file "$arquivo" "$PROMPT" > review.md 2> review.err; then
               echo "::warning::opencode falhou com $modelo"
               sed -n '1,30p' review.err
@@ -159,17 +168,19 @@ jobs:
             return 0
           }
 
-          if revisar "$MODEL"; then
-            echo "::notice::Revisão gerada com $MODEL"
-          else
-            echo "::warning::Falha com $MODEL; tentando fallback $MODEL_FALLBACK"
-            rm -f review.md review.err
-            if revisar "$MODEL_FALLBACK"; then
-              echo "::notice::Revisão gerada com fallback $MODEL_FALLBACK"
-            else
-              echo "::error::Nenhum modelo produziu revisão (primário e fallback falharam)"
-              exit 1
+          for modelo in "$MODEL" "$MODEL_FALLBACK" "$MODEL_FALLBACK2"; do
+            [ -n "$modelo" ] || continue
+            if revisar "$modelo"; then
+              echo "::notice::Revisão gerada com $modelo"
+              break
             fi
+            echo "::warning::Falha com $modelo"
+            rm -f review.md review.err
+          done
+
+          if [ ! -s review.md ]; then
+            echo "::error::Nenhum modelo produziu revisão (cadeia inteira falhou)"
+            exit 1
           fi
 
           echo "--- saída do modelo ---"

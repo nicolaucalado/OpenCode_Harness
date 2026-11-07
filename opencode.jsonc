@@ -1,8 +1,8 @@
 {
   "$schema": "https://opencode.ai/config.json",
 
-  // Modelo padrão do trabalho local. Groq free é o default do CI (ver docs/PROVIDERS.md).
-  "model": "groq/openai/gpt-oss-120b",
+  // Modelo padrão do trabalho local. No CI a cadeia começa no Gemini (ver docs/PROVIDERS.md).
+  "model": "google/gemini-3.8-flash",
 
   // Servidor MCP oficial do GitHub (remoto, autenticação por OAuth via /mcps).
   "mcp": {

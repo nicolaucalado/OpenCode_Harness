@@ -43,6 +43,8 @@ oficial; o que não deu para confirmar está marcado como incerteza.
 | 29 | Um diff de 24 KB + system prompt/ferramentas = **13.473 tokens**, acima do TPM de 8.000 da Groq free | log real do PR #3 (07/11/2026) | ✅ medido |
 | 30 | `models/gemini-2.5-flash` **não está mais disponível para contas novas**; o provider recomenda `gemini-3.8-flash` | erro real da API no log do PR #3 | ✅ |
 | 31 | `google/gemini-3.8-flash` existe no catálogo: 1M de contexto, 65k de saída, tool calling | <https://models.dev/api.json> (`providers.google`) | ✅ |
+| 32 | Gemini 3.8 Flash respondeu "This model is currently experiencing high demand" após ~6 min de retentativas (07/11/2026) | log do run 42333945697 | ✅ transiente |
+| 33 | O fallback pediu **73.567 tokens** com diff de 6 KB — contexto herdado da tentativa anterior; corrigido isolando `XDG_*` por tentativa | idem | ✅ |
 
 ## Não verificado / decisão consciente
 

@@ -91,8 +91,9 @@ issue ──► branch dio/<modulo>-<tema> ──► notebook + src/ + tests/
 - A revisão usa `opencode run --standalone` (caminho documentado no V2), com o modelo da variable
   `OPENCODE_MODEL` — default `google/gemini-3.8-flash` (1M de contexto, free tier) — e a chave no
   secret `GEMINI_API_KEY`.
-- Fallback automático para `groq/openai/gpt-oss-120b` (`GROQ_API_KEY`) se o primário falhar.
-- O workflow gera dois diffs (80 KB para o Gemini, 6 KB para a Groq) porque o free tier da Groq tem
+- Fallback em cadeia: `google/gemini-3-flash-preview` e depois `groq/openai/gpt-oss-120b`
+  (`GROQ_API_KEY`); cada tentativa roda em estado isolado e com timeout.
+- O workflow gera dois diffs (80 KB para os Gemini, 3 KB para a Groq) porque o free tier da Groq tem
   TPM de 8.000; o comentário avisa quando a revisão é parcial.
 - O comentário é **único**: cada push atualiza o mesmo comentário (marcador `<!-- opencode-review -->`).
 - PRs de fork e drafts são pulados de propósito — fork não recebe secrets.

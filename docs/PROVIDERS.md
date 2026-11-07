@@ -16,7 +16,7 @@ Motivos (revisados em 07/11/2026, depois do primeiro teste real):
 4. `google/gemini-2.5-flash` **não está mais disponível para contas novas** (erro real do provider);
    o substituto indicado é o `gemini-3.8-flash`.
 
-O workflow gera **dois diffs**: `pr.diff` (até 80 KB, usado pelo Gemini) e `pr-small.diff` (6 KB, usado
+O workflow gera **dois diffs**: `pr.diff` (até 80 KB, usado pelo Gemini) e `pr-small.diff` (3 KB, usado
 por `groq/*`). A escolha é pelo prefixo do modelo, então trocar as variables não quebra o limite de TPM.
 
 ## Comparativo
@@ -43,20 +43,27 @@ repete com o fallback **sem duplicar o comentário**:
 | Variable | Default |
 |---|---|
 | `OPENCODE_MODEL` | `google/gemini-3.8-flash` |
-| `OPENCODE_MODEL_FALLBACK` | `groq/openai/gpt-oss-120b` |
+| `OPENCODE_MODEL_FALLBACK` | `google/gemini-3-flash-preview` |
+| `OPENCODE_MODEL_FALLBACK2` | `groq/openai/gpt-oss-120b` |
 
 ```powershell
 gh variable set OPENCODE_MODEL --body "google/gemini-3.8-flash"
-gh variable set OPENCODE_MODEL_FALLBACK --body "groq/openai/gpt-oss-120b"
-gh secret set GROQ_API_KEY
+gh variable set OPENCODE_MODEL_FALLBACK --body "google/gemini-3-flash-preview"
+gh variable set OPENCODE_MODEL_FALLBACK2 --body "groq/openai/gpt-oss-120b"
 gh secret set GEMINI_API_KEY
+gh secret set GROQ_API_KEY
 ```
+
+A cadeia é tentada em ordem. Cada tentativa roda em um **estado isolado** (`XDG_DATA_HOME`/`XDG_STATE_HOME`
+próprios, `mktemp -d`) e com `timeout 240`: sem isso o fallback herda a sessão anterior e o contexto
+cresce até estourar o TPM (foi o que aconteceu no teste de 07/11: 73.567 tokens pedidos mesmo com um
+diff pequeno; a causa era o contexto herdado).
 
 O provider `google` do catálogo do OpenCode aceita `GEMINI_API_KEY` (também aceita `GOOGLE_API_KEY` e
 `GOOGLE_GENERATIVE_AI_API_KEY`). O modelo `google/gemini-3.8-flash` tem 1M de contexto e é o primário.
 
 Limitação: o Groq free **não aceita** o diff grande. Por isso o review gera `pr.diff` (até 80 KB) e
-`pr-small.diff` (6 KB); modelos `groq/*` recebem o pequeno automaticamente. Se o fallback for outro
+`pr-small.diff` (3 KB); modelos `groq/*` recebem o pequeno automaticamente. Se o fallback for outro
 provider com TPM baixo, ajuste `SMALL_DIFF_BYTES`.
 
 ## Como trocar de provider
