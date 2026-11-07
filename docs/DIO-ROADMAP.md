@@ -55,6 +55,10 @@ Regras que valem para todas as atividades:
 
 Copie a linha ao criar a issue. Marque `[x]` só depois do merge.
 
+**Validação pendente de merge:** a branch `dio/01-python` contém
+`notebooks/dio-01-python.ipynb` (20 células; formato nbformat válido). O notebook foi
+concluído localmente e aguarda merge; mantenha o status `[ ]` até lá.
+
 | # | Módulo / atividade | Branch | Status |
 |---|---|---|---|
 | 01 | Fundamentos de Python | `dio/01-python` | [ ] |
