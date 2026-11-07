@@ -13,9 +13,9 @@ oficial; o que não deu para confirmar está marcado como incerteza.
 | 4 | No V2, o arquivo de instruções do projeto é `AGENTS.md` (não há fallback para `CLAUDE.md`) | <https://opencode.ai/v2/docs/instructions/> | ✅ |
 | 5 | `opencode run` suporta `--model`, `--file`, `--standalone`, `--archived`, `--auto`, `--format json`, `--continue`, `--session`, `--agent` | <https://opencode.ai/v2/docs/cli/commands/> | ✅ |
 | 6 | O exemplo oficial de CI instala `@opencode/cli` e roda `opencode run --standalone` com a API key em variável de ambiente | idem | ✅ |
-| 7 | `@opencode/cli` está na versão **2.2.5** e publica o binário `opencode.exe` (funciona no Windows) | <https://registry.npmjs.org/@opencode/cli/latest> | ✅ |
+| 7 | `@opencode/cli` publica o binário `opencode.exe`; o CI fixa **2.2.5** (latest em 06/11/2026: **2.2.6**) | <https://registry.npmjs.org/@opencode/cli> | ✅ |
 | 8 | O endpoint remoto do GitHub MCP é `https://api.githubcopilot.com/mcp/` | <https://github.com/github/github-mcp-server> | ✅ |
-| 9 | Últimas versões das actions usadas: `actions/checkout` **v7.0.1**, `actions/setup-node` **v7.1.0**, `astral-sh/setup-uv` **v10.3.3**, `actions/setup-python` v7.1.0 | API de releases do GitHub | ✅ |
+| 9 | Últimas versões das actions usadas: `actions/checkout` **v7.0.1** (tag móvel `v7` existe), `actions/setup-node` **v7.1.0** (`v7` existe), `astral-sh/setup-uv` **v10.3.3** — **não existe tag móvel `v10`**, pinar a versão exata | API de releases e de refs do GitHub | ✅ |
 | 10 | Na página de download, o CLI é distribuído por `curl`, npm, bun e brew; o app desktop tem builds Windows x64/ARM64 — não há instalador `.msi` do CLI | <https://opencode.ai/download> | ✅ |
 | 11 | Modelos free-tier do Console só funcionam dentro do OpenCode; outros harnesses recebem HTTP 403 | <https://opencode.ai/v2/docs/console/harnesses/> | ✅ |
 | 12 | Trilha DIO: 50 horas, 3 meses, projetos de detecção de anomalias, DataPilot e assistente virtual | <https://app.santanderopenacademy.com/pt-BR/program/dados-com-python-e-ia> | ✅ |
