@@ -5,18 +5,19 @@ documentados. Análise feita em **04/11/2026**.
 
 ## Resumo da decisão
 
-**Default do CI: Groq (plano free) com `groq/openai/gpt-oss-120b`.**
+**Default do CI: Gemini (`google/gemini-3.8-flash`) com fallback Groq (`groq/openai/gpt-oss-120b`).**
 
-Motivos:
+Motivos (revisados em 07/11/2026, depois do primeiro teste real):
 
-1. Limites **públicos e generosos** para uso pessoal: 30 req/min, **1.000 req/dia**, 8.000 tokens/min,
-   200.000 tokens/dia.
-2. Provider **nativo** no OpenCode (a própria Groq documenta o OpenCode como cliente).
-3. Sem cartão de crédito e sem custo por token.
-4. Uma revisão por push consome 1 requisição — 1.000/dia cobre com folga um portfólio ativo.
+1. O limite de **8.000 TPM** da Groq free não cabe no harness: um diff de 24 KB gerou uma requisição
+   de **13.473 tokens** (o CLI envia também system prompt e definições de ferramentas) e foi rejeitada.
+2. O Gemini tem **1M de contexto** e TPM alto no free tier — revisa PRs grandes sem truncar.
+3. A Groq continua útil como **fallback** para diffs pequenos: 30 RPM, **1.000 req/dia**, custo zero.
+4. `google/gemini-2.5-flash` **não está mais disponível para contas novas** (erro real do provider);
+   o substituto indicado é o `gemini-3.8-flash`.
 
-O gargalo é o **TPM de 8.000**: por isso o workflow trunca o diff em 24 KB (~6 mil tokens) e avisa no
-comentário quando isso acontece. PRs gigantes recebem revisão parcial.
+O workflow gera **dois diffs**: `pr.diff` (até 80 KB, usado pelo Gemini) e `pr-small.diff` (6 KB, usado
+por `groq/*`). A escolha é pelo prefixo do modelo, então trocar as variables não quebra o limite de TPM.
 
 ## Comparativo
 
@@ -41,23 +42,22 @@ repete com o fallback **sem duplicar o comentário**:
 
 | Variable | Default |
 |---|---|
-| `OPENCODE_MODEL` | `groq/openai/gpt-oss-120b` |
-| `OPENCODE_MODEL_FALLBACK` | `google/gemini-2.5-flash` |
+| `OPENCODE_MODEL` | `google/gemini-3.8-flash` |
+| `OPENCODE_MODEL_FALLBACK` | `groq/openai/gpt-oss-120b` |
 
 ```powershell
-gh variable set OPENCODE_MODEL --body "groq/openai/gpt-oss-120b"
-gh variable set OPENCODE_MODEL_FALLBACK --body "google/gemini-2.5-flash"
+gh variable set OPENCODE_MODEL --body "google/gemini-3.8-flash"
+gh variable set OPENCODE_MODEL_FALLBACK --body "groq/openai/gpt-oss-120b"
 gh secret set GROQ_API_KEY
 gh secret set GEMINI_API_KEY
 ```
 
 O provider `google` do catálogo do OpenCode aceita `GEMINI_API_KEY` (também aceita `GOOGLE_API_KEY` e
-`GOOGLE_GENERATIVE_AI_API_KEY`). O modelo `google/gemini-2.5-flash` tem 1M de contexto e free tier
-próprio — por isso é o fallback natural para diffs grandes ou quando a cota da Groq acaba.
+`GOOGLE_GENERATIVE_AI_API_KEY`). O modelo `google/gemini-3.8-flash` tem 1M de contexto e é o primário.
 
-Limitação: as duas tentativas usam o **mesmo diff truncado** em 24 KB. Se quiser aproveitar o contexto
-maior do Gemini, aumente `MAX_DIFF_BYTES` no workflow (mas aí a Groq pode passar do TPM de 8.000 e cair
-justamente no fallback).
+Limitação: o Groq free **não aceita** o diff grande. Por isso o review gera `pr.diff` (até 80 KB) e
+`pr-small.diff` (6 KB); modelos `groq/*` recebem o pequeno automaticamente. Se o fallback for outro
+provider com TPM baixo, ajuste `SMALL_DIFF_BYTES`.
 
 ## Como trocar de provider
 
@@ -65,15 +65,15 @@ O modelo vem da variable `OPENCODE_MODEL` e a chave do secret correspondente:
 
 | `OPENCODE_MODEL` | Secret | Observação |
 |---|---|---|
-| `groq/openai/gpt-oss-120b` | `GROQ_API_KEY` | default; 1.000 req/dia |
+| `google/gemini-3.8-flash` | `GEMINI_API_KEY` | **default**; 1M de contexto, free tier |
+| `groq/openai/gpt-oss-120b` | `GROQ_API_KEY` | fallback; 1.000 req/dia, 8K TPM (diff pequeno) |
 | `opencode/deepseek-v4.1-flash-free` | `OPENCODE_API_KEY` | free tier só funciona dentro do OpenCode |
 | `openrouter/<modelo>:free` | `OPENROUTER_API_KEY` | cota diária baixa sem créditos |
-| `google/gemini-...` | `GOOGLE_GENERATIVE_AI_API_KEY` | confirme o nome da variável no seu provider |
 | `anthropic/claude-sonnet-5-5` | `ANTHROPIC_API_KEY` | pago por token; melhor qualidade |
 
 ```powershell
-gh variable set OPENCODE_MODEL --body "groq/openai/gpt-oss-120b"
-gh secret set GROQ_API_KEY
+gh variable set OPENCODE_MODEL --body "google/gemini-3.8-flash"
+gh secret set GEMINI_API_KEY
 ```
 
 Se o modelo for de um provider pago, ajuste também `MAX_DIFF_BYTES` no workflow para cima (o limite da

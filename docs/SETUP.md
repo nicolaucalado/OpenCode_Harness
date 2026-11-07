@@ -145,10 +145,10 @@ A revisão usa o modelo definido na **variable** `OPENCODE_MODEL` e a chave no *
 Com `gh` (ele pergunta o valor sem deixar rastro no histórico):
 
 ```powershell
-gh variable set OPENCODE_MODEL --body "groq/openai/gpt-oss-120b"
-gh variable set OPENCODE_MODEL_FALLBACK --body "google/gemini-2.5-flash"
-gh secret set GROQ_API_KEY
+gh variable set OPENCODE_MODEL --body "google/gemini-3.8-flash"
+gh variable set OPENCODE_MODEL_FALLBACK --body "groq/openai/gpt-oss-120b"
 gh secret set GEMINI_API_KEY
+gh secret set GROQ_API_KEY
 ```
 
 Pela web: **Settings → Secrets and variables → Actions**.
@@ -159,8 +159,8 @@ Pela web: **Settings → Secrets and variables → Actions**.
 
 | Secret | Quando usar |
 |---|---|
-| `GROQ_API_KEY` | **default** — modelo `groq/...` (free: 1.000 req/dia) |
-| `GEMINI_API_KEY` | fallback `google/gemini-2.5-flash` (free tier, contexto de 1M) |
+| `GEMINI_API_KEY` | **default** — `google/gemini-3.8-flash` (1M de contexto, free tier) |
+| `GROQ_API_KEY` | fallback `groq/openai/gpt-oss-120b` (free: 1.000 req/dia; só diff pequeno) |
 | `OPENCODE_API_KEY` | modelo `opencode/...` (Zen free ou Console pago) |
 | `OPENROUTER_API_KEY` | modelo `openrouter/...:free` |
 | `ANTHROPIC_API_KEY` | modelo `anthropic/...` (pago por token) |

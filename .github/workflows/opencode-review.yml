@@ -21,14 +21,17 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  # Defina o repositório variável OPENCODE_MODEL (Settings > Variables).
-  # Default: Groq free (30 RPM, 1.000 req/dia, 8K TPM). Ver docs/PROVIDERS.md.
-  MODEL: ${{ vars.OPENCODE_MODEL || 'groq/openai/gpt-oss-120b' }}
-  # Fallback automático se o primário falhar (429, indisponibilidade, timeout).
-  MODEL_FALLBACK: ${{ vars.OPENCODE_MODEL_FALLBACK || 'google/gemini-2.5-flash' }}
+  # Defina as variables do repositório (Settings > Variables) para trocar de modelo.
+  # Primário: Gemini 3.8 Flash (1M de contexto, free tier). Ver docs/PROVIDERS.md.
+  MODEL: ${{ vars.OPENCODE_MODEL || 'google/gemini-3.8-flash' }}
+  # Fallback: Groq (30 RPM, 1.000 req/dia, 8K TPM) — só recebe diff pequeno.
+  MODEL_FALLBACK: ${{ vars.OPENCODE_MODEL_FALLBACK || 'groq/openai/gpt-oss-120b' }}
   OPENCODE_VERSION: "2.2.5"
-  # 24 KB ≈ 6 mil tokens: mantém a requisição abaixo do TPM de 8.000 da Groq.
-  MAX_DIFF_BYTES: "24000"
+  # Medido no PR #3: 24 KB de diff pediram 13.473 tokens (limite Groq: 8.000 TPM),
+  # porque o CLI envia também o system prompt e as definições de ferramentas.
+  MAX_DIFF_BYTES: "80000"
+  # Diff usado por modelos com TPM baixo (Groq free): ~2 mil tokens + system prompt.
+  SMALL_DIFF_BYTES: "6000"
 
 jobs:
   review:
@@ -58,14 +61,25 @@ jobs:
           BASE_SHA: ${{ github.event.pull_request.base.sha }}
         run: |
           git diff --no-color --stat "$BASE_SHA"...HEAD > pr-stat.txt
-          git diff --no-color "$BASE_SHA"...HEAD > pr.diff
-          tamanho=$(wc -c < pr.diff)
-          if [ "$tamanho" -gt "$MAX_DIFF_BYTES" ]; then
-            head -c "$MAX_DIFF_BYTES" pr.diff > pr.diff.tmp
-            mv pr.diff.tmp pr.diff
-            printf '\n\n[ATENÇÃO: diff truncado em %s bytes pelo workflow; revise o restante manualmente]\n' \
-              "$MAX_DIFF_BYTES" >> pr.diff
-          fi
+          git diff --no-color "$BASE_SHA"...HEAD > pr-diff-full.txt
+
+          truncar() {
+            arquivo="$1"
+            limite="$2"
+            if [ "$(wc -c < "$arquivo")" -gt "$limite" ]; then
+              head -c "$limite" "$arquivo" > "$arquivo.tmp"
+              mv "$arquivo.tmp" "$arquivo"
+              printf '\n\n[ATENÇÃO: diff truncado em %s de %s bytes pelo workflow; comente o que ficou de fora]\n' \
+                "$limite" "$(wc -c < pr-diff-full.txt)" >> "$arquivo"
+            fi
+          }
+
+          cp pr-diff-full.txt pr.diff          # modelos com contexto grande (Gemini)
+          cp pr-diff-full.txt pr-small.diff    # modelos com TPM baixo (Groq free)
+          truncar pr.diff "$MAX_DIFF_BYTES"
+          truncar pr-small.diff "$SMALL_DIFF_BYTES"
+
+          echo "Tamanho do diff: $(wc -c < pr-diff-full.txt) bytes (original)"
           echo "Arquivos alterados:" && cat pr-stat.txt
 
       - name: Verificar credencial
@@ -116,12 +130,22 @@ jobs:
           EOF
           )
 
+          diff_para() {
+            case "$1" in
+              groq/*) echo pr-small.diff ;;
+              *) echo pr.diff ;;
+            esac
+          }
+
           revisar() {
+            modelo="$1"
+            arquivo=$(diff_para "$modelo")
             : > review.md
             : > review.err
-            if ! opencode run --standalone --model "$1" \
-              --file pr-stat.txt --file pr.diff "$PROMPT" > review.md 2> review.err; then
-              echo "::warning::opencode falhou com $1"
+            echo "Tentando $modelo com $arquivo ($(wc -c < "$arquivo") bytes)"
+            if ! opencode run --standalone --model "$modelo" \
+              --file pr-stat.txt --file "$arquivo" "$PROMPT" > review.md 2> review.err; then
+              echo "::warning::opencode falhou com $modelo"
               sed -n '1,30p' review.err
               return 1
             fi
@@ -131,15 +155,16 @@ jobs:
               echo "::error::O CLI devolveu o texto de ajuda em vez de revisar (flag inválida?)"
               return 1
             fi
+            echo "$modelo" > modelo-usado.txt
             return 0
           }
 
-          if revisar "$MODEL" && [ -s review.md ]; then
+          if revisar "$MODEL"; then
             echo "::notice::Revisão gerada com $MODEL"
           else
             echo "::warning::Falha com $MODEL; tentando fallback $MODEL_FALLBACK"
             rm -f review.md review.err
-            if revisar "$MODEL_FALLBACK" && [ -s review.md ]; then
+            if revisar "$MODEL_FALLBACK"; then
               echo "::notice::Revisão gerada com fallback $MODEL_FALLBACK"
             else
               echo "::error::Nenhum modelo produziu revisão (primário e fallback falharam)"
@@ -159,15 +184,16 @@ jobs:
           PR: ${{ github.event.pull_request.number }}
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
         run: |
+          modelo_usado=$(cat modelo-usado.txt 2>/dev/null || echo "$MODEL")
           if [ ! -s review.md ]; then
-            printf '⚠️ A revisão automática não produziu saída. Confira os logs do job e se o secret da API está configurado.\n' > review.md
+            printf '⚠️ A revisão automática não produziu saída para `%s`. Veja os logs do job (Actions) e se o secret do provider está configurado.\n' "$MODEL" > review.md
           fi
 
           {
             echo '<!-- opencode-review -->'
             echo '## Revisão automática — OpenCode'
             echo
-            printf '_Modelo: `%s` · commit: `%s`_\n\n' "$MODEL" "${HEAD_SHA:0:7}"
+            printf '_Modelo: `%s` · commit: `%s`_\n\n' "$modelo_usado" "${HEAD_SHA:0:7}"
             echo
             cat review.md
             echo

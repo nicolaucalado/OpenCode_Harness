@@ -29,7 +29,7 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  MODEL: ${{ vars.OPENCODE_MODEL || 'groq/openai/gpt-oss-120b' }}
+  MODEL: ${{ vars.OPENCODE_MODEL || 'google/gemini-3.8-flash' }}
   OPENCODE_VERSION: "2.2.5"
 
 jobs:

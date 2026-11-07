@@ -26,8 +26,12 @@ data/processed/
 # OpenCode / artefatos locais do harness
 review.md
 review.err
+body.md
 pr.diff
+pr-small.diff
+pr-diff-full.txt
 pr-stat.txt
+modelo-usado.txt
 
 # Sistema
 .DS_Store

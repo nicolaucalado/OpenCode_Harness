@@ -40,6 +40,9 @@ oficial; o que não deu para confirmar está marcado como incerteza.
 | 26 | OpenRouter free: 20 RPM; 50 req/dia com menos de US$10 em créditos e 1.000/dia acima disso | <https://openrouter.ai/docs/api-reference/limits> | ⚠️ tabela não renderizou no fetch; valores usuais — confirme na página |
 | 27 | Provider `google` do catálogo aceita `GEMINI_API_KEY` e o modelo `google/gemini-2.5-flash` existe (1M de contexto) | <https://models.dev/api.json> (`providers.google`) | ✅ |
 | 28 | Provider `groq` aceita `GROQ_API_KEY` e expõe `openai/gpt-oss-120b` | idem (`providers.groq`) | ✅ |
+| 29 | Um diff de 24 KB + system prompt/ferramentas = **13.473 tokens**, acima do TPM de 8.000 da Groq free | log real do PR #3 (07/11/2026) | ✅ medido |
+| 30 | `models/gemini-2.5-flash` **não está mais disponível para contas novas**; o provider recomenda `gemini-3.8-flash` | erro real da API no log do PR #3 | ✅ |
+| 31 | `google/gemini-3.8-flash` existe no catálogo: 1M de contexto, 65k de saída, tool calling | <https://models.dev/api.json> (`providers.google`) | ✅ |
 
 ## Não verificado / decisão consciente
 
