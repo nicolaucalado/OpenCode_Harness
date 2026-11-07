@@ -1,7 +1,9 @@
 name: opencode · revisão de PR
 
 # Revisão automática usando o caminho documentado no OpenCode V2:
-#   opencode run --standalone --archived  (ver https://opencode.ai/v2/docs/cli/commands)
+#   opencode run --standalone  (ver https://opencode.ai/v2/docs/cli/commands)
+# Atenção: a documentação cita --archived, mas o CLI 2.2.5 ainda não aceita essa flag
+# (o parser devolve o texto de ajuda). Ver docs/FACT-CHECK.md.
 # O resultado é publicado como comentário único no PR (atualizado a cada push).
 
 on:
@@ -86,7 +88,6 @@ jobs:
       - name: Revisar com OpenCode
         id: review
         if: steps.creds.outputs.ok == 'true'
-        continue-on-error: true
         env:
           GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
@@ -116,8 +117,21 @@ jobs:
           )
 
           revisar() {
-            opencode run --standalone --archived --model "$1" \
-              --file pr-stat.txt --file pr.diff "$PROMPT" > review.md 2> review.err
+            : > review.md
+            : > review.err
+            if ! opencode run --standalone --model "$1" \
+              --file pr-stat.txt --file pr.diff "$PROMPT" > review.md 2> review.err; then
+              echo "::warning::opencode falhou com $1"
+              sed -n '1,30p' review.err
+              return 1
+            fi
+            [ -s review.md ] || return 1
+            # Com flag inválida o CLI imprime o help em vez de revisar; isso não é revisão.
+            if grep -qE 'opencode run \[flags\]|^USAGE$' review.md; then
+              echo "::error::O CLI devolveu o texto de ajuda em vez de revisar (flag inválida?)"
+              return 1
+            fi
+            return 0
           }
 
           if revisar "$MODEL" && [ -s review.md ]; then

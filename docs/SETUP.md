@@ -205,6 +205,7 @@ Para pedir uma implementação ao agente: **Actions → opencode · tarefa → R
 | `opencode mcp list` sem `github` | rodou fora da pasta do projeto | execute dentro de `OpenCode_Harness` |
 | MCP `needs authentication` | OAuth pendente | `/mcps` → github → sign in |
 | review falha com `429` | cota do provider estourada | espere o reset ou troque `OPENCODE_MODEL` (ver `PROVIDERS.md`) |
+| review comenta o **texto de ajuda** do CLI | flag inexistente na versão instalada (ex.: `--archived` no 2.2.5) | remova a flag; o workflow agora detecta e falha em vez de publicar o help |
 | CI falha em `uv sync --frozen` | `uv.lock` desatualizado | `uv lock` e commite |
 | `git push` negado dentro do agente | permissão `deny` proposital | faça o push você mesmo |
 

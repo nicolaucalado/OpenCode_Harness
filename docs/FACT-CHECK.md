@@ -11,7 +11,7 @@ oficial; o que não deu para confirmar está marcado como incerteza.
 | 2 | Ações de permissão do V2: `read`, `edit`, `shell`, `webfetch`, `websearch`, `subagent`, `skill`, `question`, `glob`, `grep`, `external_directory` e `<server>_<tool>` para MCP | idem | ✅ |
 | 3 | Servidores MCP ficam em `mcp.servers` (V2 não aceita nome direto em `mcp`); remoto = `type: "remote"` + `url`; OAuth é o padrão e `/mcps` faz o login | <https://opencode.ai/v2/docs/mcp-servers/> | ✅ |
 | 4 | No V2, o arquivo de instruções do projeto é `AGENTS.md` (não há fallback para `CLAUDE.md`) | <https://opencode.ai/v2/docs/instructions/> | ✅ |
-| 5 | `opencode run` suporta `--model`, `--file`, `--standalone`, `--archived`, `--auto`, `--format json`, `--continue`, `--session`, `--agent` | <https://opencode.ai/v2/docs/cli/commands/> | ✅ |
+| 5 | `opencode run` suporta `--model`, `--file`, `--auto`, `--format json`, `--continue`, `--session`, `--agent`; `--standalone` é flag **global**. A doc cita `--archived`, mas o CLI **2.2.5 instalado não aceita** (devolve o help) | <https://opencode.ai/v2/docs/cli/commands/> + saída de `opencode run --help` no CI | ⚠️ divergente — usar sem `--archived` |
 | 6 | O exemplo oficial de CI instala `@opencode/cli` e roda `opencode run --standalone` com a API key em variável de ambiente | idem | ✅ |
 | 7 | `@opencode/cli` publica o binário `opencode.exe`; o CI fixa **2.2.5** (latest em 06/11/2026: **2.2.6**) | <https://registry.npmjs.org/@opencode/cli> | ✅ |
 | 8 | O endpoint remoto do GitHub MCP é `https://api.githubcopilot.com/mcp/` | <https://github.com/github/github-mcp-server> | ✅ |

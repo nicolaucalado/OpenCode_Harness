@@ -65,7 +65,7 @@ jobs:
           OPENCODE_API_KEY: ${{ secrets.OPENCODE_API_KEY }}
           OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
         run: |
-          opencode run --standalone --archived --auto --model "$MODEL" \
+          opencode run --standalone --auto --model "$MODEL" \
             "Tarefa solicitada pelo mantenedor do repositório:
 
           ${TAREFA}
