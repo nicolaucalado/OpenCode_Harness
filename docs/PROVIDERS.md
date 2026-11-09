@@ -35,36 +35,46 @@ por `groq/*`). A escolha é pelo prefixo do modelo, então trocar as variables n
 > assinatura com uso incluído (Go). Para um harness pessoal, a cota da Groq é a que tem melhor relação
 > entre documentação, volume e zero custo.
 
-## Fallback automático (Groq → Gemini)
+## Fallback automático (cadeia Gemini)
 
-O workflow de review tenta o modelo primário e, se ele falhar (429, indisponibilidade, timeout),
-repete com o fallback **sem duplicar o comentário**:
+O workflow tenta os modelos em ordem e publica **um único comentário**, sem duplicar:
 
 | Variable | Default |
 |---|---|
 | `OPENCODE_MODEL` | `google/gemini-3.8-flash` |
 | `OPENCODE_MODEL_FALLBACK` | `google/gemini-3-flash-preview` |
-| `OPENCODE_MODEL_FALLBACK2` | `groq/openai/gpt-oss-120b` |
+| `OPENCODE_MODEL_FALLBACK2` | `google/gemini-3.1-flash-lite-preview` |
 
 ```powershell
 gh variable set OPENCODE_MODEL --body "google/gemini-3.8-flash"
 gh variable set OPENCODE_MODEL_FALLBACK --body "google/gemini-3-flash-preview"
-gh variable set OPENCODE_MODEL_FALLBACK2 --body "groq/openai/gpt-oss-120b"
+gh variable set OPENCODE_MODEL_FALLBACK2 --body "google/gemini-3.1-flash-lite-preview"
 gh secret set GEMINI_API_KEY
-gh secret set GROQ_API_KEY
 ```
 
 A cadeia é tentada em ordem. Cada tentativa roda em um **estado isolado** (`XDG_DATA_HOME`/`XDG_STATE_HOME`
-próprios, `mktemp -d`) e com `timeout 240`: sem isso o fallback herda a sessão anterior e o contexto
-cresce até estourar o TPM (foi o que aconteceu no teste de 07/11: 73.567 tokens pedidos mesmo com um
-diff pequeno; a causa era o contexto herdado).
+próprios, `mktemp -d`), é limpa ao final e tem `timeout 240`: sem o isolamento o fallback herda a sessão
+anterior e o contexto cresce até estourar o TPM (foi o que aconteceu no teste de 07/11: 73.567 tokens
+pedidos mesmo com diff pequeno).
 
 O provider `google` do catálogo do OpenCode aceita `GEMINI_API_KEY` (também aceita `GOOGLE_API_KEY` e
-`GOOGLE_GENERATIVE_AI_API_KEY`). O modelo `google/gemini-3.8-flash` tem 1M de contexto e é o primário.
+`GOOGLE_GENERATIVE_AI_API_KEY`). Cada modelo tem **cota free separada** — foi o que salvou o PR #1 em
+07/11: o 3.8 devolveu "quota exceeded" em 9,6 s e o 3 Flash respondeu em 13 s.
 
-Limitação: o Groq free **não aceita** o diff grande. Por isso o review gera `pr.diff` (até 80 KB) e
-`pr-small.diff` (3 KB); modelos `groq/*` recebem o pequeno automaticamente. Se o fallback for outro
-provider com TPM baixo, ajuste `SMALL_DIFF_BYTES`.
+### Por que a Groq saiu da cadeia
+
+O free tier da Groq (`gpt-oss-120b`) tem **8.000 TPM**. A medição limpa do PR #3 (07/11) foi:
+
+- diff de 15.037 bytes + prompt + stat ≈ 5.500 tokens (tokenizador o200k);
+- requisição inteira: **13.473 tokens** → ~7.973 tokens de custo fixo (system prompt, `AGENTS.md`,
+  definições de ferramentas e MCP).
+
+Mesmo com diff de 3 KB a requisição passaria de 9.000 tokens. **Nenhum valor de `SMALL_DIFF_BYTES`
+resolve** — por isso o terceiro modelo passou a ser outro Gemini. A Groq continua documentada como
+opção para quem usar o Dev Tier; o workflow mantém `pr-small.diff` para modelos `groq/*`.
+
+Limitação: `pr.diff` é truncado em 80 KB e o comentário avisa quando a revisão é parcial. Modelos
+`groq/*`, se configurados manualmente, recebem `pr-small.diff` de 3 KB.
 
 ## Como trocar de provider
 

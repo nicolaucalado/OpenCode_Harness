@@ -26,14 +26,14 @@ env:
   MODEL: ${{ vars.OPENCODE_MODEL || 'google/gemini-3.8-flash' }}
   # 1º fallback: outro Gemini, para quando o primário estiver em "high demand".
   MODEL_FALLBACK: ${{ vars.OPENCODE_MODEL_FALLBACK || 'google/gemini-3-flash-preview' }}
-  # 2º fallback: Groq (30 RPM, 1.000 req/dia, 8K TPM) — só recebe diff pequeno.
-  MODEL_FALLBACK2: ${{ vars.OPENCODE_MODEL_FALLBACK2 || 'groq/openai/gpt-oss-120b' }}
+  # 2º fallback: Gemini Lite, que tem cota separada dos outros dois. A Groq free foi
+  # removida da cadeia: o custo fixo do CLI (~8k tokens) já estoura o TPM de 8.000.
+  MODEL_FALLBACK2: ${{ vars.OPENCODE_MODEL_FALLBACK2 || 'google/gemini-3.1-flash-lite-preview' }}
   OPENCODE_VERSION: "2.2.5"
-  # Medido no PR #3: 24 KB de diff pediram 13.473 tokens (limite Groq: 8.000 TPM),
-  # porque o CLI envia também o system prompt e as definições de ferramentas.
+  # Medido no PR #3: diff de 15 KB pediu 13.473 tokens (limite Groq: 8.000 TPM), porque
+  # o CLI envia também system prompt, AGENTS.md e definições de ferramentas.
   MAX_DIFF_BYTES: "80000"
-  # Diff usado por modelos com TPM baixo (Groq free: 8.000 TPM). Medido: ~6k tokens de
-  # system prompt/ferramentas + diff. 3 KB deixa margem para não estourar.
+  # Só vale para quem escolher um modelo `groq/*`: o free tier não cabe nem com diff zero.
   SMALL_DIFF_BYTES: "3000"
 
 jobs:
@@ -156,14 +156,20 @@ jobs:
               --file pr-stat.txt --file "$arquivo" "$PROMPT" > review.md 2> review.err; then
               echo "::warning::opencode falhou com $modelo"
               sed -n '1,30p' review.err
+              rm -rf "$estado"
               return 1
             fi
-            [ -s review.md ] || return 1
+            if [ ! -s review.md ]; then
+              rm -rf "$estado"
+              return 1
+            fi
             # Com flag inválida o CLI imprime o help em vez de revisar; isso não é revisão.
             if grep -qE 'opencode run \[flags\]|^USAGE$' review.md; then
               echo "::error::O CLI devolveu o texto de ajuda em vez de revisar (flag inválida?)"
+              rm -rf "$estado"
               return 1
             fi
+            rm -rf "$estado"
             echo "$modelo" > modelo-usado.txt
             return 0
           }

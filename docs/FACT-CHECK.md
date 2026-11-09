@@ -40,11 +40,14 @@ oficial; o que não deu para confirmar está marcado como incerteza.
 | 26 | OpenRouter free: 20 RPM; 50 req/dia com menos de US$10 em créditos e 1.000/dia acima disso | <https://openrouter.ai/docs/api-reference/limits> | ⚠️ tabela não renderizou no fetch; valores usuais — confirme na página |
 | 27 | Provider `google` do catálogo aceita `GEMINI_API_KEY` e o modelo `google/gemini-2.5-flash` existe (1M de contexto) | <https://models.dev/api.json> (`providers.google`) | ✅ |
 | 28 | Provider `groq` aceita `GROQ_API_KEY` e expõe `openai/gpt-oss-120b` | idem (`providers.groq`) | ✅ |
-| 29 | Um diff de 24 KB + system prompt/ferramentas = **13.473 tokens**, acima do TPM de 8.000 da Groq free | log real do PR #3 (07/11/2026) | ✅ medido |
+| 29 | Diff de 15 KB + system prompt/ferramentas = **13.473 tokens**, acima do TPM de 8.000 da Groq free | log real do PR #3 (07/11/2026) | ✅ medido |
 | 30 | `models/gemini-2.5-flash` **não está mais disponível para contas novas**; o provider recomenda `gemini-3.8-flash` | erro real da API no log do PR #3 | ✅ |
 | 31 | `google/gemini-3.8-flash` existe no catálogo: 1M de contexto, 65k de saída, tool calling | <https://models.dev/api.json> (`providers.google`) | ✅ |
 | 32 | Gemini 3.8 Flash respondeu "This model is currently experiencing high demand" após ~6 min de retentativas (07/11/2026) | log do run 42333945697 | ✅ transiente |
 | 33 | O fallback pediu **73.567 tokens** com diff de 6 KB — contexto herdado da tentativa anterior; corrigido isolando `XDG_*` por tentativa | idem | ✅ |
+| 34 | Custo fixo do CLI ≈ **7.973 tokens** (13.473 medidos − ~5.500 de diff+prompt+stat no tokenizador o200k); logo a Groq free (8.000 TPM) não comporta **nenhum** diff | log do run 42331749648 + contagem local | ✅ derivado |
+| 35 | `google/gemini-3.1-flash-lite-preview` existe: 1M de contexto, tool calling, US$ 0,25/1,50 por milhão | <https://models.dev/api.json> (`providers.google`) | ✅ |
+| 36 | A cota free do Gemini é **por modelo**: em 07/11 o 3.8 devolveu "quota exceeded" e o 3 Flash respondeu 13 s depois | logs dos runs 42335644999 e 42335659463 | ✅ medido |
 
 ## Não verificado / decisão consciente
 

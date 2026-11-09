@@ -147,10 +147,12 @@ Com `gh` (ele pergunta o valor sem deixar rastro no histórico):
 ```powershell
 gh variable set OPENCODE_MODEL --body "google/gemini-3.8-flash"
 gh variable set OPENCODE_MODEL_FALLBACK --body "google/gemini-3-flash-preview"
-gh variable set OPENCODE_MODEL_FALLBACK2 --body "groq/openai/gpt-oss-120b"
+gh variable set OPENCODE_MODEL_FALLBACK2 --body "google/gemini-3.1-flash-lite-preview"
 gh secret set GEMINI_API_KEY
-gh secret set GROQ_API_KEY
 ```
+
+A cadeia usa **três Gemini** porque cada modelo tem cota free separada. A Groq free ficou fora do
+default: o custo fixo do CLI (~8k tokens) já estoura o TPM de 8.000 (ver `docs/PROVIDERS.md`).
 
 Pela web: **Settings → Secrets and variables → Actions**.
 
@@ -160,8 +162,8 @@ Pela web: **Settings → Secrets and variables → Actions**.
 
 | Secret | Quando usar |
 |---|---|
-| `GEMINI_API_KEY` | **default** — `google/gemini-3.8-flash` (1M de contexto, free tier) |
-| `GROQ_API_KEY` | último fallback `groq/openai/gpt-oss-120b` (free: 1.000 req/dia; só diff de 3 KB) |
+| `GEMINI_API_KEY` | **default** — cobre a cadeia `gemini-3.8-flash` → `3-flash-preview` → `3.1-flash-lite-preview` (1M de contexto, free tier) |
+| `GROQ_API_KEY` | opcional — só se você trocar a cadeia para `groq/openai/gpt-oss-120b` (Dev Tier; o free de 8k TPM não cabe) |
 | `OPENCODE_API_KEY` | modelo `opencode/...` (Zen free ou Console pago) |
 | `OPENROUTER_API_KEY` | modelo `openrouter/...:free` |
 | `ANTHROPIC_API_KEY` | modelo `anthropic/...` (pago por token) |
