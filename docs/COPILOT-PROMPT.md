@@ -18,9 +18,10 @@ Ele foi escrito para terminar a publicação do repositório e validar o fluxo d
 Antes de colar, troque:
 
 - `<CAMINHO>` → `C:\Users\nicol\OneDrive\Documents\Projeto Padrão\OpenCode_Harness`
-- `<MODELO>` → `groq/openai/gpt-oss-120b` (default) ou outro de [`PROVIDERS.md`](./PROVIDERS.md)
-- `<FALLBACK>` → `google/gemini-2.5-flash` (default)
-- `<SECRET>` → `GROQ_API_KEY`, `GEMINI_API_KEY` ou `OPENCODE_API_KEY`
+- `<MODELO>` → `google/gemini-3.8-flash` (default) ou outro de [`PROVIDERS.md`](./PROVIDERS.md)
+- `<FALLBACK>` → `google/gemini-3-flash-preview` (default)
+- `<FALLBACK2>` → `google/gemini-3.1-flash-lite-preview` (default)
+- `<SECRET>` → `GEMINI_API_KEY` (a cadeia default usa só Gemini)
 
 ---
 
@@ -46,10 +47,11 @@ e me peça para fazer — não tente contornar.
    sem mudar o escopo do projeto.
 3. [CONFIRMAR] Crie o repositório remoto: `gh repo create nicolaucalado/OpenCode_Harness --public
    --source . --remote origin --push`. Se eu preferir privado, use `--private`.
-4. Configure a variable de modelo:
+4. Configure as variables de modelo:
    `gh variable set OPENCODE_MODEL --body "<MODELO>"`
    `gh variable set OPENCODE_MODEL_FALLBACK --body "<FALLBACK>"`
-   Para os secrets (<SECRET> e GEMINI_API_KEY), NÃO rode `gh secret set` sem valor: ele abre um
+   `gh variable set OPENCODE_MODEL_FALLBACK2 --body "<FALLBACK2>"`
+   Para o secret (<SECRET>), NÃO rode `gh secret set` sem valor: ele abre um
    prompt interativo. Me avise para cadastrar em Settings → Secrets and variables → Actions,
    ou me peça para rodar no terminal com o valor vindo de uma variável de ambiente.
 5. Crie a branch `dio/teste-harness`, marque uma linha da tabela de checklist em

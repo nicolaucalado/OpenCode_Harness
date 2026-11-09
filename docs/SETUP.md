@@ -69,21 +69,24 @@ uv run python -m ipykernel install --user --name opencode-harness --display-name
 
 ## 3. Autenticar o OpenCode no provider
 
-O default do projeto é **Groq (free)**, com o modelo `groq/openai/gpt-oss-120b` (1.000 req/dia).
-Crie a key em <https://console.groq.com/keys> e conecte:
+O default do projeto (local e CI) é **Gemini**, com `google/gemini-3.8-flash` (1M de contexto, free
+tier). Crie a key em <https://aistudio.google.com/apikey> e conecte:
 
 ```powershell
-opencode auth login   # escolha Groq
+opencode auth login   # escolha Google
 ```
 
-Ou, dentro do OpenCode, `/connect` → Groq → cole a key.
+Ou, dentro do OpenCode, `/connect` → Google → cole a key.
 
 Confira:
 
 ```powershell
 opencode models
-opencode run --model groq/openai/gpt-oss-120b "responda apenas: ok"
+opencode run --model google/gemini-3.8-flash "responda apenas: ok"
 ```
+
+Se preferir a Groq localmente, ela continua funcionando como provider — mas o free tier de 8K TPM não
+cabe no review automático (ver [`PROVIDERS.md`](./PROVIDERS.md)).
 
 Alternativas (OpenRouter, Gemini, Zen free, Go) e seus limites: [`PROVIDERS.md`](./PROVIDERS.md).
 
