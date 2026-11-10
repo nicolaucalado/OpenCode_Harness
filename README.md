@@ -91,7 +91,7 @@ issue ──► branch dio/<modulo>-<tema> ──► notebook + src/ + tests/
 - A revisão usa `opencode run --standalone` (caminho documentado no V2), com o modelo da variable
   `OPENCODE_MODEL` — default `google/gemini-3.8-flash` (1M de contexto, free tier) — e a chave no
   secret `GEMINI_API_KEY`.
-- Fallback em cadeia: `google/gemini-3-flash-preview` e depois `google/gemini-3.1-flash-lite-preview`
+- Fallback em cadeia: `google/gemini-3-flash-preview` e depois `google/gemini-3.1-flash-lite`
   (mesma `GEMINI_API_KEY`, cotas free separadas); cada tentativa roda em estado isolado e com timeout.
 - O workflow gera dois diffs (80 KB para os Gemini, 3 KB para `groq/*`); a Groq free ficou fora da
   cadeia porque o custo fixo do CLI (~8k tokens) já estoura o TPM de 8.000. O comentário avisa quando

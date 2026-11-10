@@ -20,7 +20,7 @@ Antes de colar, troque:
 - `<CAMINHO>` → `C:\Users\nicol\OneDrive\Documents\Projeto Padrão\OpenCode_Harness`
 - `<MODELO>` → `google/gemini-3.8-flash` (default) ou outro de [`PROVIDERS.md`](./PROVIDERS.md)
 - `<FALLBACK>` → `google/gemini-3-flash-preview` (default)
-- `<FALLBACK2>` → `google/gemini-3.1-flash-lite-preview` (default)
+- `<FALLBACK2>` → `google/gemini-3.1-flash-lite` (default)
 - `<SECRET>` → `GEMINI_API_KEY` (a cadeia default usa só Gemini)
 
 ---

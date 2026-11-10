@@ -6,7 +6,7 @@ documentados. Análise feita em **04/11/2026**.
 ## Resumo da decisão
 
 **Default do CI: cadeia Gemini** — `google/gemini-3.8-flash` → `google/gemini-3-flash-preview` →
-`google/gemini-3.1-flash-lite-preview`.
+`google/gemini-3.1-flash-lite`.
 
 Motivos (revisados em 09/11/2026):
 
@@ -46,17 +46,17 @@ O workflow tenta os modelos em ordem e publica **um único comentário**, sem du
 |---|---|
 | `OPENCODE_MODEL` | `google/gemini-3.8-flash` |
 | `OPENCODE_MODEL_FALLBACK` | `google/gemini-3-flash-preview` |
-| `OPENCODE_MODEL_FALLBACK2` | `google/gemini-3.1-flash-lite-preview` |
+| `OPENCODE_MODEL_FALLBACK2` | `google/gemini-3.1-flash-lite` |
 
 ```powershell
 gh variable set OPENCODE_MODEL --body "google/gemini-3.8-flash"
 gh variable set OPENCODE_MODEL_FALLBACK --body "google/gemini-3-flash-preview"
-gh variable set OPENCODE_MODEL_FALLBACK2 --body "google/gemini-3.1-flash-lite-preview"
+gh variable set OPENCODE_MODEL_FALLBACK2 --body "google/gemini-3.1-flash-lite"
 gh secret set GEMINI_API_KEY
 ```
 
 A cadeia é tentada em ordem. Cada tentativa roda em um **estado isolado** (`XDG_DATA_HOME`/`XDG_STATE_HOME`
-próprios, `mktemp -d`), é limpa ao final e tem `timeout 240`: sem o isolamento o fallback herda a sessão
+próprios, `mktemp -d`), é limpa ao final e tem `timeout 360`: sem o isolamento o fallback herda a sessão
 anterior e o contexto cresce até estourar o TPM (foi o que aconteceu no teste de 07/11: 73.567 tokens
 pedidos mesmo com diff pequeno).
 

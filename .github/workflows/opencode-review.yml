@@ -28,7 +28,8 @@ env:
   MODEL_FALLBACK: ${{ vars.OPENCODE_MODEL_FALLBACK || 'google/gemini-3-flash-preview' }}
   # 2º fallback: Gemini Lite, que tem cota separada dos outros dois. A Groq free foi
   # removida da cadeia: o custo fixo do CLI (~8k tokens) já estoura o TPM de 8.000.
-  MODEL_FALLBACK2: ${{ vars.OPENCODE_MODEL_FALLBACK2 || 'google/gemini-3.1-flash-lite-preview' }}
+  # Use o ID estável: o `-preview` está no catálogo, mas a API responde "Model unavailable".
+  MODEL_FALLBACK2: ${{ vars.OPENCODE_MODEL_FALLBACK2 || 'google/gemini-3.1-flash-lite' }}
   OPENCODE_VERSION: "2.2.5"
   # Medido no PR #3: diff de 15 KB pediu 13.473 tokens (limite Groq: 8.000 TPM), porque
   # o CLI envia também system prompt, AGENTS.md e definições de ferramentas.
@@ -43,7 +44,7 @@ jobs:
       github.event.pull_request.draft == false &&
       github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 25
 
     steps:
       - name: Checkout
@@ -152,7 +153,7 @@ jobs:
             echo "Tentando $modelo com $arquivo ($(wc -c < "$arquivo") bytes)"
             if ! XDG_DATA_HOME="$estado/data" XDG_STATE_HOME="$estado/state" \
               XDG_CACHE_HOME="$estado/cache" \
-              timeout 240 opencode run --standalone --model "$modelo" \
+              timeout 360 opencode run --standalone --model "$modelo" \
               --file pr-stat.txt --file "$arquivo" "$PROMPT" > review.md 2> review.err; then
               echo "::warning::opencode falhou com $modelo"
               sed -n '1,30p' review.err
