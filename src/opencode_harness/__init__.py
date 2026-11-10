@@ -2,11 +2,27 @@
 
 from __future__ import annotations
 
+from opencode_harness.contas import (
+    Carteira,
+    Conta,
+    ContaCorrente,
+    ContaPoupanca,
+    SaldoInsuficienteError,
+    TipoMovimento,
+    Transacao,
+)
 from opencode_harness.data import SchemaError, profile, require_columns, split_features_target
 from opencode_harness.vendas import aplicar_desconto, classificar_ticket
 
 __all__ = [
+    "Carteira",
+    "Conta",
+    "ContaCorrente",
+    "ContaPoupanca",
+    "SaldoInsuficienteError",
     "SchemaError",
+    "TipoMovimento",
+    "Transacao",
     "aplicar_desconto",
     "classificar_ticket",
     "profile",
