@@ -36,6 +36,8 @@ def test_classificar_ticket_rejeita_entrada_invalida(valor: float) -> None:
         (100, 100, 0.0),
         (99.99, 10, 89.99),
         (80, 12.5, 70.0),
+        # round() daria 2.67 (arredondamento bancário + binário); em preço, 2.68.
+        (2.675, 0, 2.68),
     ],
 )
 def test_aplicar_desconto(valor: float, percentual: float, esperado: float) -> None:
@@ -48,7 +50,7 @@ def test_aplicar_desconto_rejeita_valor_invalido(valor: float) -> None:
         aplicar_desconto(valor, 10)
 
 
-@pytest.mark.parametrize("percentual", [-0.01, 100.01, math.nan])
+@pytest.mark.parametrize("percentual", [-0.01, 100.01, math.nan, math.inf])
 def test_aplicar_desconto_rejeita_percentual_invalido(percentual: float) -> None:
     with pytest.raises(ValueError, match="percentual"):
         aplicar_desconto(100, percentual)
