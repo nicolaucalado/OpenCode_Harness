@@ -3,9 +3,9 @@
 O notebook mostra as consultas; aqui ficam as operações que precisam de teste: conexão
 com as pragmas certas, esquema, inserções parametrizadas e agregações.
 
-``receita_por_categoria`` daqui opera em uma conexão SQL; a versão da aula 02
-(``opencode_harness.vendas``) opera em uma lista de dicionários. Por isso ela é importada
-do módulo, não do topo do pacote.
+``receita_por_categoria_sql`` daqui opera em uma conexão SQL; a versão da aula 02
+(``opencode_harness.vendas.receita_por_categoria``) opera em uma lista de dicionários.
+O sufixo evita que duas funções de mesmo propósito disputem o mesmo nome.
 """
 
 from __future__ import annotations
@@ -18,7 +18,7 @@ __all__ = [
     "criar_esquema",
     "inserir_cliente",
     "inserir_produto",
-    "receita_por_categoria",
+    "receita_por_categoria_sql",
     "registrar_venda",
     "ticket_medio",
     "top_clientes",
@@ -40,11 +40,15 @@ CREATE TABLE IF NOT EXISTS produtos (
 
 CREATE TABLE IF NOT EXISTS vendas (
     id         INTEGER PRIMARY KEY,
+    -- CASCADE: venda sem cliente não faz sentido. RESTRICT: produto com histórico não
+    -- pode ser apagado do catálogo (o padrão do SQLite já é NO ACTION, mas explícito
+    -- documenta a intenção).
     cliente_id INTEGER NOT NULL REFERENCES clientes(id) ON DELETE CASCADE,
-    produto_id INTEGER NOT NULL REFERENCES produtos(id),
+    produto_id INTEGER NOT NULL REFERENCES produtos(id) ON DELETE RESTRICT,
     quantidade INTEGER NOT NULL CHECK (quantidade > 0),
-    data       TEXT NOT NULL,
-    UNIQUE (cliente_id, produto_id, data)
+    -- Sem isso, qualquer texto entraria em `data`. O CHECK garante o formato ISO
+    -- (AAAA-MM-DD) na própria tabela, não só na camada Python.
+    data       TEXT NOT NULL CHECK (data LIKE '____-__-__')
 );
 
 CREATE INDEX IF NOT EXISTS idx_vendas_cliente ON vendas(cliente_id);
@@ -99,7 +103,7 @@ def registrar_venda(
     quantidade: int,
     data: str,
 ) -> None:
-    """Registra uma venda (data ISO ``AAAA-MM-DD``).
+    """Registra uma venda (data ISO ``AAAA-MM-DD``, validada por ``CHECK``).
 
     Não faz ``commit``: quem chama decide a transação (``with conn:`` no notebook).
     """
@@ -109,7 +113,7 @@ def registrar_venda(
     )
 
 
-def receita_por_categoria(conn: sqlite3.Connection) -> list[tuple[str, float]]:
+def receita_por_categoria_sql(conn: sqlite3.Connection) -> list[tuple[str, float]]:
     """Receita por categoria, da maior para a menor (``JOIN`` + ``GROUP BY``)."""
     sql = """
         SELECT p.categoria AS categoria,
@@ -123,7 +127,11 @@ def receita_por_categoria(conn: sqlite3.Connection) -> list[tuple[str, float]]:
 
 
 def ticket_medio(conn: sqlite3.Connection) -> float:
-    """Receita total dividida pelo número de vendas (0.0 quando não há venda)."""
+    """Valor médio por linha de venda (``receita / COUNT(*)``); 0.0 sem venda.
+
+    Como o esquema não tem um cabeçalho de venda/carrinho, cada linha de ``vendas`` é
+    uma transação. Se o modelo ganhar ``venda_id``, a divisão passa a ser por venda.
+    """
     sql = """
         SELECT COALESCE(ROUND(SUM(v.quantidade * p.preco) / COUNT(*), 2), 0.0) AS ticket
         FROM vendas AS v

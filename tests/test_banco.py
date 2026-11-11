@@ -9,7 +9,7 @@ from opencode_harness.banco import (
     criar_esquema,
     inserir_cliente,
     inserir_produto,
-    receita_por_categoria,
+    receita_por_categoria_sql,
     registrar_venda,
     ticket_medio,
     top_clientes,
@@ -69,9 +69,24 @@ def test_quantidade_zero_viola_check(conn: sqlite3.Connection) -> None:
     assert conn.execute("SELECT COUNT(*) FROM vendas").fetchone()[0] == 5
 
 
-def test_venda_duplicada_viola_unique(conn: sqlite3.Connection) -> None:
+def test_produto_duplicado_viola_unique(conn: sqlite3.Connection) -> None:
     with pytest.raises(sqlite3.IntegrityError), conn:
-        registrar_venda(conn, 1, 1, 2, "2026-08-01")
+        inserir_produto(conn, 9, "mouse", "periferico", 90.0)
+
+
+def test_data_fora_do_formato_iso_viola_check(conn: sqlite3.Connection) -> None:
+    with pytest.raises(sqlite3.IntegrityError), conn:
+        registrar_venda(conn, 1, 1, 1, "11/11/2026")
+
+
+def test_mesmo_cliente_produto_e_dia_em_duas_vendas_e_permitido(
+    conn: sqlite3.Connection,
+) -> None:
+    # sem UNIQUE (cliente_id, produto_id, data): duas compras no mesmo dia são legítimas
+    with conn:
+        registrar_venda(conn, 1, 1, 1, "2026-08-01")
+
+    assert conn.execute("SELECT COUNT(*) FROM vendas").fetchone()[0] == 6
 
 
 def test_produto_com_preco_negativo_viola_check(conn: sqlite3.Connection) -> None:
@@ -80,7 +95,7 @@ def test_produto_com_preco_negativo_viola_check(conn: sqlite3.Connection) -> Non
 
 
 def test_receita_por_categoria_ordena_por_receita(conn: sqlite3.Connection) -> None:
-    assert receita_por_categoria(conn) == [
+    assert receita_por_categoria_sql(conn) == [
         ("hardware", 8200.0),
         ("periferico", 1700.0),
     ]
