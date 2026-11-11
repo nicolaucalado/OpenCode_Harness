@@ -4,7 +4,11 @@ import math
 
 import pytest
 
-from opencode_harness.vendas import aplicar_desconto, classificar_ticket
+from opencode_harness.vendas import (
+    aplicar_desconto,
+    classificar_ticket,
+    receita_por_categoria,
+)
 
 
 @pytest.mark.parametrize(
@@ -54,3 +58,19 @@ def test_aplicar_desconto_rejeita_valor_invalido(valor: float) -> None:
 def test_aplicar_desconto_rejeita_percentual_invalido(percentual: float) -> None:
     with pytest.raises(ValueError, match="percentual"):
         aplicar_desconto(100, percentual)
+
+
+VENDAS = [
+    {"categoria": "hardware", "valor": 3500.0, "qtd": 2},
+    {"categoria": "periferico", "valor": 80.0, "qtd": 10},
+    {"categoria": "hardware", "valor": 1200.0, "qtd": 1},
+    {"categoria": "Periférico", "valor": 150.0, "qtd": 4},
+]
+
+
+def test_receita_por_categoria_normaliza_a_chave() -> None:
+    assert receita_por_categoria(VENDAS) == {"hardware": 8200.0, "periferico": 1400.0}
+
+
+def test_receita_por_categoria_sem_vendas() -> None:
+    assert receita_por_categoria([]) == {}
