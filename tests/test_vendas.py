@@ -50,7 +50,7 @@ def test_aplicar_desconto_rejeita_valor_invalido(valor: float) -> None:
         aplicar_desconto(valor, 10)
 
 
-@pytest.mark.parametrize("percentual", [-0.01, 100.01, math.nan, math.inf])
+@pytest.mark.parametrize("percentual", [-0.01, -0.000001, 100.01, 100.000001, math.nan, math.inf])
 def test_aplicar_desconto_rejeita_percentual_invalido(percentual: float) -> None:
     with pytest.raises(ValueError, match="percentual"):
         aplicar_desconto(100, percentual)
