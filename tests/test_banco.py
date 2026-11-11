@@ -74,9 +74,10 @@ def test_produto_duplicado_viola_unique(conn: sqlite3.Connection) -> None:
         inserir_produto(conn, 9, "mouse", "periferico", 90.0)
 
 
-def test_data_fora_do_formato_iso_viola_check(conn: sqlite3.Connection) -> None:
+@pytest.mark.parametrize("data", ["11/11/2026", "2026-99-99", "banana"])
+def test_data_invalida_viola_check(conn: sqlite3.Connection, data: str) -> None:
     with pytest.raises(sqlite3.IntegrityError), conn:
-        registrar_venda(conn, 1, 1, 1, "11/11/2026")
+        registrar_venda(conn, 1, 1, 1, data)
 
 
 def test_mesmo_cliente_produto_e_dia_em_duas_vendas_e_permitido(
@@ -99,6 +100,19 @@ def test_receita_por_categoria_ordena_por_receita(conn: sqlite3.Connection) -> N
         ("hardware", 8200.0),
         ("periferico", 1700.0),
     ]
+
+
+def test_remover_cliente_apaga_vendas_em_cascata(conn: sqlite3.Connection) -> None:
+    with conn:
+        conn.execute("DELETE FROM clientes WHERE id = 1")
+
+    assert conn.execute("SELECT COUNT(*) FROM vendas").fetchone()[0] == 2
+    assert {linha["cliente_id"] for linha in conn.execute("SELECT cliente_id FROM vendas")} == {2}
+
+
+def test_produto_com_venda_nao_pode_ser_removido(conn: sqlite3.Connection) -> None:
+    with pytest.raises(sqlite3.IntegrityError), conn:
+        conn.execute("DELETE FROM produtos WHERE id = 1")
 
 
 def test_ticket_medio(conn: sqlite3.Connection) -> None:

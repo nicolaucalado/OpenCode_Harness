@@ -46,9 +46,9 @@ CREATE TABLE IF NOT EXISTS vendas (
     cliente_id INTEGER NOT NULL REFERENCES clientes(id) ON DELETE CASCADE,
     produto_id INTEGER NOT NULL REFERENCES produtos(id) ON DELETE RESTRICT,
     quantidade INTEGER NOT NULL CHECK (quantidade > 0),
-    -- Sem isso, qualquer texto entraria em `data`. O CHECK garante o formato ISO
-    -- (AAAA-MM-DD) na própria tabela, não só na camada Python.
-    data       TEXT NOT NULL CHECK (data LIKE '____-__-__')
+    -- Sem isso, qualquer texto entraria em `data`. O LIKE garante o formato ISO e
+    -- date() rejeita mês/dia impossível (ex.: 2026-99-99), que o LIKE sozinho aceitaria.
+    data       TEXT NOT NULL CHECK (data LIKE '____-__-__' AND date(data) IS NOT NULL)
 );
 
 CREATE INDEX IF NOT EXISTS idx_vendas_cliente ON vendas(cliente_id);
@@ -127,13 +127,13 @@ def receita_por_categoria_sql(conn: sqlite3.Connection) -> list[tuple[str, float
 
 
 def ticket_medio(conn: sqlite3.Connection) -> float:
-    """Valor médio por linha de venda (``receita / COUNT(*)``); 0.0 sem venda.
+    """Valor médio por linha de venda (``AVG``); 0.0 sem venda.
 
     Como o esquema não tem um cabeçalho de venda/carrinho, cada linha de ``vendas`` é
     uma transação. Se o modelo ganhar ``venda_id``, a divisão passa a ser por venda.
     """
     sql = """
-        SELECT COALESCE(ROUND(SUM(v.quantidade * p.preco) / COUNT(*), 2), 0.0) AS ticket
+        SELECT COALESCE(ROUND(AVG(v.quantidade * p.preco), 2), 0.0) AS ticket
         FROM vendas AS v
         JOIN produtos AS p ON p.id = v.produto_id
     """
