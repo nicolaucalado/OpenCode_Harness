@@ -100,8 +100,7 @@ class Conta(ABC):
     def sacar(self, valor: float, descricao: str = "saque") -> None:
         if valor > self.saldo_disponivel:
             raise SaldoInsuficienteError(
-                f"saque de R$ {valor:.2f} acima do disponível "
-                f"(R$ {self.saldo_disponivel:.2f})"
+                f"saque de R$ {valor:.2f} acima do disponível (R$ {self.saldo_disponivel:.2f})"
             )
         self._registrar(Transacao(descricao, valor, TipoMovimento.SAIDA))
         self._saldo = round(self._saldo - valor, 2)
