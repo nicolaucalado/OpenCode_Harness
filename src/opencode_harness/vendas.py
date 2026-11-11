@@ -7,9 +7,18 @@ reaproveitadas por outros notebooks. Os casos de aceite estão em ``tests/test_v
 from __future__ import annotations
 
 import math
+from collections.abc import Iterable
 from decimal import ROUND_HALF_UP, Decimal
 
-__all__ = ["LIMITE_BAIXO", "LIMITE_MEDIO", "aplicar_desconto", "classificar_ticket"]
+from opencode_harness.texto import agrupar_por, slug
+
+__all__ = [
+    "LIMITE_BAIXO",
+    "LIMITE_MEDIO",
+    "aplicar_desconto",
+    "classificar_ticket",
+    "receita_por_categoria",
+]
 
 LIMITE_BAIXO = 100.0
 LIMITE_MEDIO = 500.0
@@ -55,3 +64,15 @@ def aplicar_desconto(valor: float, percentual: float) -> float:
 
     fator = 1 - Decimal(str(percentual)) / 100
     return float((Decimal(str(valor)) * fator).quantize(_DUAS_CASAS, rounding=ROUND_HALF_UP))
+
+
+def receita_por_categoria(vendas: Iterable[dict]) -> dict[str, float]:
+    """Soma ``valor * qtd`` por categoria normalizada com ``slug``.
+
+    A normalização na chave do agrupamento é o que impede ``'Periférico'`` e
+    ``'periferico'`` de virarem grupos diferentes.
+    """
+    receita: dict[str, float] = {}
+    for categoria, itens in agrupar_por(vendas, "categoria", normalizar=slug).items():
+        receita[categoria] = round(sum(item["valor"] * item["qtd"] for item in itens), 2)
+    return receita
