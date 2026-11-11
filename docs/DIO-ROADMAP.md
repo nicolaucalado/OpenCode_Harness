@@ -60,7 +60,7 @@ Copie a linha ao criar a issue. Marque `[x]` só depois do merge.
 | 01 | Fundamentos de Python | `dio/01-python` | [x] |
 | 02 | Estruturas de dados e funções | `dio/02-estruturas` | [x] |
 | 03 | POO e organização de código | `dio/03-poo` | [x] |
-| 04 | Banco de dados e SQL | `dio/04-sql` | [ ] |
+| 04 | Banco de dados e SQL | `dio/04-sql` | [x] |
 | 05 | Análise exploratória de dados | `dio/05-eda` | [ ] |
 | 06 | Machine Learning — baseline | `dio/06-ml-baseline` | [ ] |
 | 07 | IA generativa e agentes | `dio/07-ia-agentes` | [ ] |
