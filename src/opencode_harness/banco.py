@@ -6,6 +6,11 @@ com as pragmas certas, esquema, inserções parametrizadas e agregações.
 ``receita_por_categoria_sql`` daqui opera em uma conexão SQL; a versão da aula 02
 (``opencode_harness.vendas.receita_por_categoria``) opera em uma lista de dicionários.
 O sufixo evita que duas funções de mesmo propósito disputem o mesmo nome.
+
+Dinheiro aqui é ``REAL`` (ponto flutuante), como no SQLite: suficiente para a aula e para
+os volumes do notebook, mas em produção o valor vai em inteiro de centavos ou ``NUMERIC``.
+Os ``INSERT`` recebem ``id`` explícito de propósito, para o dataset de exemplo ser
+reproduzível entre execuções.
 """
 
 from __future__ import annotations
@@ -143,8 +148,11 @@ def ticket_medio(conn: sqlite3.Connection) -> float:
 def top_clientes(
     conn: sqlite3.Connection,
     n: int = 3,
-) -> list[tuple[str, float, int]]:
+) -> list[tuple[int, str, float, int]]:
     """Top ``n`` clientes por receita, com posição via ``RANK() OVER``.
+
+    Devolve ``(cliente_id, nome, total, posicao)``: o id entra porque dois clientes
+    podem ter o mesmo nome e o consumidor precisa distinguir as linhas.
 
     Empates dividem a mesma posição (``RANK``, diferente de ``ROW_NUMBER``) e todos
     entram: o filtro é ``posicao <= n``, não ``LIMIT n``, então a lista pode ter mais
@@ -154,22 +162,27 @@ def top_clientes(
         raise ValueError("n não pode ser negativo")
     sql = """
         WITH receita AS (
-            SELECT c.nome AS nome,
+            SELECT c.id AS cliente_id,
+                   c.nome AS nome,
                    SUM(v.quantidade * p.preco) AS total
             FROM vendas AS v
             JOIN clientes AS c ON c.id = v.cliente_id
             JOIN produtos AS p ON p.id = v.produto_id
-            GROUP BY c.id
+            GROUP BY c.id, c.nome
         ),
         ranking AS (
-            SELECT nome,
+            SELECT cliente_id,
+                   nome,
                    ROUND(total, 2) AS total,
                    RANK() OVER (ORDER BY total DESC) AS posicao
             FROM receita
         )
-        SELECT nome, total, posicao
+        SELECT cliente_id, nome, total, posicao
         FROM ranking
         WHERE posicao <= ?
         ORDER BY total DESC, nome
     """
-    return [(linha["nome"], linha["total"], linha["posicao"]) for linha in conn.execute(sql, (n,))]
+    return [
+        (linha["cliente_id"], linha["nome"], linha["total"], linha["posicao"])
+        for linha in conn.execute(sql, (n,))
+    ]

@@ -132,9 +132,13 @@ def test_ticket_medio_sem_vendas() -> None:
 
 
 def test_top_clientes_usa_rank(conn: sqlite3.Connection) -> None:
-    assert top_clientes(conn, n=1) == [("Ana", 8100.0, 1)]
-    assert [linha[0] for linha in top_clientes(conn)] == ["Ana", "Bia"]
-    assert [linha[2] for linha in top_clientes(conn)] == [1, 2]
+    assert top_clientes(conn, n=1) == [(1, "Ana", 8100.0, 1)]
+    assert [linha[1] for linha in top_clientes(conn)] == ["Ana", "Bia"]
+    assert [linha[3] for linha in top_clientes(conn)] == [1, 2]
+
+
+def test_top_clientes_com_n_zero_devolve_lista_vazia(conn: sqlite3.Connection) -> None:
+    assert top_clientes(conn, n=0) == []
 
 
 def test_top_clientes_inclui_empate_na_fronteira() -> None:
@@ -148,7 +152,10 @@ def test_top_clientes_inclui_empate_na_fronteira() -> None:
         registrar_venda(conexao, 2, 1, 1, "2026-08-01")
 
     # as duas empatam em 1º; LIMIT 1 cortaria uma delas, o filtro por posicao não
-    assert top_clientes(conexao, n=1) == [("Ana", 100.0, 1), ("Bia", 100.0, 1)]
+    assert top_clientes(conexao, n=1) == [
+        (1, "Ana", 100.0, 1),
+        (2, "Bia", 100.0, 1),
+    ]
     conexao.close()
 
 
