@@ -28,7 +28,7 @@ ESQUEMA = """
 CREATE TABLE IF NOT EXISTS clientes (
     id   INTEGER PRIMARY KEY,
     nome TEXT NOT NULL,
-    uf   TEXT NOT NULL CHECK (length(uf) = 2)
+    uf   TEXT NOT NULL CHECK (uf GLOB '[A-Z][A-Z]')
 );
 
 CREATE TABLE IF NOT EXISTS produtos (
@@ -146,7 +146,9 @@ def top_clientes(
 ) -> list[tuple[str, float, int]]:
     """Top ``n`` clientes por receita, com posição via ``RANK() OVER``.
 
-    Empates dividem a mesma posição (``RANK``), diferente de ``ROW_NUMBER``.
+    Empates dividem a mesma posição (``RANK``, diferente de ``ROW_NUMBER``) e todos
+    entram: o filtro é ``posicao <= n``, não ``LIMIT n``, então a lista pode ter mais
+    de ``n`` linhas quando há empate na fronteira.
     """
     if n < 0:
         raise ValueError("n não pode ser negativo")
@@ -158,12 +160,16 @@ def top_clientes(
             JOIN clientes AS c ON c.id = v.cliente_id
             JOIN produtos AS p ON p.id = v.produto_id
             GROUP BY c.id
+        ),
+        ranking AS (
+            SELECT nome,
+                   ROUND(total, 2) AS total,
+                   RANK() OVER (ORDER BY total DESC) AS posicao
+            FROM receita
         )
-        SELECT nome,
-               ROUND(total, 2) AS total,
-               RANK() OVER (ORDER BY total DESC) AS posicao
-        FROM receita
+        SELECT nome, total, posicao
+        FROM ranking
+        WHERE posicao <= ?
         ORDER BY total DESC, nome
-        LIMIT ?
     """
     return [(linha["nome"], linha["total"], linha["posicao"]) for linha in conn.execute(sql, (n,))]

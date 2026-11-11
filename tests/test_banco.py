@@ -102,6 +102,11 @@ def test_receita_por_categoria_ordena_por_receita(conn: sqlite3.Connection) -> N
     ]
 
 
+def test_uf_invalida_viola_check(conn: sqlite3.Connection) -> None:
+    with pytest.raises(sqlite3.IntegrityError), conn:
+        inserir_cliente(conn, 9, "Caio", "11")
+
+
 def test_remover_cliente_apaga_vendas_em_cascata(conn: sqlite3.Connection) -> None:
     with conn:
         conn.execute("DELETE FROM clientes WHERE id = 1")
@@ -130,6 +135,21 @@ def test_top_clientes_usa_rank(conn: sqlite3.Connection) -> None:
     assert top_clientes(conn, n=1) == [("Ana", 8100.0, 1)]
     assert [linha[0] for linha in top_clientes(conn)] == ["Ana", "Bia"]
     assert [linha[2] for linha in top_clientes(conn)] == [1, 2]
+
+
+def test_top_clientes_inclui_empate_na_fronteira() -> None:
+    conexao = conectar()
+    criar_esquema(conexao)
+    with conexao:
+        inserir_cliente(conexao, 1, "Ana", "SP")
+        inserir_cliente(conexao, 2, "Bia", "RJ")
+        inserir_produto(conexao, 1, "curso", "servico", 100.0)
+        registrar_venda(conexao, 1, 1, 1, "2026-08-01")
+        registrar_venda(conexao, 2, 1, 1, "2026-08-01")
+
+    # as duas empatam em 1º; LIMIT 1 cortaria uma delas, o filtro por posicao não
+    assert top_clientes(conexao, n=1) == [("Ana", 100.0, 1), ("Bia", 100.0, 1)]
+    conexao.close()
 
 
 def test_top_clientes_rejeita_n_negativo(conn: sqlite3.Connection) -> None:
