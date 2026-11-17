@@ -21,6 +21,14 @@ from opencode_harness.contas import (
     TipoMovimento,
     Transacao,
 )
+from opencode_harness.dados import (
+    gerar_vendas,
+    limpar_vendas,
+    outliers_iqr,
+    para_sqlite,
+    resumo_mensal,
+    ticket_por_canal,
+)
 from opencode_harness.data import SchemaError, profile, require_columns, split_features_target
 from opencode_harness.texto import agrupar_por, slug, top_n
 from opencode_harness.vendas import (
@@ -43,16 +51,22 @@ __all__ = [
     "classificar_ticket",
     "conectar",
     "criar_esquema",
+    "gerar_vendas",
     "inserir_cliente",
     "inserir_produto",
+    "limpar_vendas",
+    "outliers_iqr",
+    "para_sqlite",
     "profile",
     "receita_por_categoria",
     "receita_por_categoria_sql",
     "registrar_venda",
     "require_columns",
+    "resumo_mensal",
     "slug",
     "split_features_target",
     "ticket_medio",
+    "ticket_por_canal",
     "top_clientes",
     "top_n",
 ]
