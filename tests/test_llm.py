@@ -1,0 +1,227 @@
+from __future__ import annotations
+
+from typing import Any
+
+import pytest
+
+from opencode_harness import llm
+from opencode_harness.llm import (
+    Agente,
+    ChamadaFerramenta,
+    Ferramenta,
+    FerramentaDesconhecida,
+    LimitePassosExcedido,
+    Mensagem,
+    ProvedorFalso,
+    ProvedorIndisponivel,
+    ProvedorOpenAI,
+    Resposta,
+    RespostaInvalida,
+    SemResposta,
+    argumentos_invalidos,
+)
+
+
+def somar(a: float, b: float) -> float:
+    return a + b
+
+
+def criar_ferramenta_soma() -> Ferramenta:
+    return Ferramenta(
+        nome="somar",
+        descricao="Soma dois números",
+        parametros={"a": "number", "b": "number"},
+        funcao=somar,
+    )
+
+
+def test_mensagem_rejeita_papel_invalido() -> None:
+    with pytest.raises(ValueError, match="papel inválido"):
+        Mensagem("humano", "oi")
+
+
+def test_resposta_exige_texto_ou_chamada() -> None:
+    with pytest.raises(ValueError, match="texto ou de uma chamada"):
+        Resposta()
+
+
+def test_ferramenta_executa_com_argumentos_validos() -> None:
+    assert criar_ferramenta_soma().executar({"a": 2, "b": 3}) == 5
+
+
+def test_ferramenta_rejeita_argumentos_invalidos_sem_chamar_funcao() -> None:
+    chamadas: list[dict[str, Any]] = []
+
+    def espiao(**kwargs: Any) -> None:
+        chamadas.append(kwargs)
+
+    ferramenta = Ferramenta("espiao", "não deve rodar", {"a": "number"}, espiao)
+
+    with pytest.raises(ValueError, match="faltando: a"):
+        ferramenta.executar({})
+    with pytest.raises(ValueError, match="desconhecido: c"):
+        ferramenta.executar({"a": 1, "c": 2})
+
+    assert chamadas == []
+
+
+def test_argumentos_invalidos_lista_todos_os_problemas() -> None:
+    problemas = argumentos_invalidos({"a": "number", "b": "number"}, {"b": 2, "c": 3})
+
+    assert problemas == ["faltando: a", "desconhecido: c"]
+
+
+def test_ferramenta_rejeita_nome_invalido() -> None:
+    with pytest.raises(ValueError, match="nome de ferramenta inválido"):
+        Ferramenta("nome com espaço", "x", {}, somar)
+
+
+def test_ferramenta_gera_schema_openai() -> None:
+    schema = criar_ferramenta_soma().para_openai()
+
+    assert schema["type"] == "function"
+    assert schema["function"]["name"] == "somar"
+    assert schema["function"]["parameters"]["required"] == ["a", "b"]
+    assert schema["function"]["parameters"]["additionalProperties"] is False
+
+
+def test_agente_responde_texto_sem_ferramenta() -> None:
+    agente = Agente(ProvedorFalso(padrao="não sei responder"), [])
+
+    assert agente.perguntar("qual a cor do céu?") == "não sei responder"
+
+
+def test_agente_executa_ferramenta_e_fecha_com_texto() -> None:
+    provedor = ProvedorFalso(
+        regras=[
+            (
+                "quanto é",
+                Resposta(
+                    chamada=ChamadaFerramenta("somar", {"a": 2, "b": 3}),
+                    texto="vou somar",
+                ),
+            )
+        ]
+    )
+    agente = Agente(provedor, [criar_ferramenta_soma()])
+
+    assert agente.perguntar("quanto é 2 + 3?") == "Resultado: 5"
+
+
+def test_agente_rejeita_ferramenta_nao_registrada() -> None:
+    provedor = ProvedorFalso(
+        regras=[("some", Resposta(chamada=ChamadaFerramenta("apagar_banco", {})))]
+    )
+    agente = Agente(provedor, [criar_ferramenta_soma()])
+
+    with pytest.raises(FerramentaDesconhecida, match="apagar_banco"):
+        agente.perguntar("some tudo")
+
+
+def test_agente_respeita_limite_de_passos() -> None:
+    class Insistente:
+        def responder(self, mensagens: list[Mensagem], ferramentas: list[Ferramenta]) -> Resposta:
+            return Resposta(chamada=ChamadaFerramenta("somar", {"a": 1, "b": 1}))
+
+    agente = Agente(Insistente(), [criar_ferramenta_soma()], max_passos=2)
+
+    with pytest.raises(LimitePassosExcedido, match="2 passos"):
+        agente.perguntar("some para sempre")
+
+
+def test_agente_rejeita_configuracao_invalida() -> None:
+    with pytest.raises(ValueError, match="max_passos"):
+        Agente(ProvedorFalso(padrao="ok"), [], max_passos=0)
+
+
+def test_agente_rejeita_pergunta_vazia() -> None:
+    agente = Agente(ProvedorFalso(padrao="ok"), [])
+
+    with pytest.raises(ValueError, match="pergunta"):
+        agente.perguntar("   ")
+
+
+def test_agente_envia_prompt_de_sistema() -> None:
+    recebidas: list[list[Mensagem]] = []
+
+    class Gravador:
+        def responder(self, mensagens: list[Mensagem], ferramentas: list[Ferramenta]) -> Resposta:
+            recebidas.append(list(mensagens))
+            return Resposta(texto="ok")
+
+    agente = Agente(Gravador(), [], sistema="Você é um analista.")
+    agente.perguntar("oi")
+
+    assert [mensagem.papel for mensagem in recebidas[0]] == ["system", "user"]
+    assert recebidas[0][0].conteudo == "Você é um analista."
+
+
+def test_agente_rejeita_ferramenta_duplicada() -> None:
+    with pytest.raises(ValueError, match="duplicada"):
+        Agente(ProvedorFalso(padrao="ok"), [criar_ferramenta_soma(), criar_ferramenta_soma()])
+
+
+def test_provedor_falso_sem_regra_e_sem_padrao_avisa() -> None:
+    agente = Agente(ProvedorFalso(), [])
+
+    with pytest.raises(SemResposta, match="nenhuma regra"):
+        agente.perguntar("pergunta sem regra")
+
+
+def test_provedor_falso_casa_palavra_chave_ignorando_caixa() -> None:
+    provedor = ProvedorFalso(
+        regras=[
+            ("receita", Resposta(texto="receita")),
+            ("ticket", Resposta(texto="ticket")),
+        ]
+    )
+
+    assert provedor.responder([Mensagem("user", "Qual a RECEITA?")], []).texto == "receita"
+    assert provedor.responder([Mensagem("user", "qual o ticket?")], []).texto == "ticket"
+
+
+def test_provedor_openai_sem_chave_esta_indisponivel() -> None:
+    provedor = ProvedorOpenAI(modelo="m", base_url="https://exemplo.invalid/v1", api_key="")
+
+    assert not provedor.disponivel
+    with pytest.raises(ProvedorIndisponivel, match="OPENAI_API_KEY"):
+        provedor.responder([Mensagem("user", "oi")], [])
+
+
+def test_provedor_openai_interpreta_tool_call(monkeypatch: pytest.MonkeyPatch) -> None:
+    def post_falso(url: str, corpo: dict[str, Any], api_key: str, timeout: float) -> dict:
+        return {
+            "choices": [
+                {
+                    "message": {
+                        "content": None,
+                        "tool_calls": [
+                            {
+                                "function": {
+                                    "name": "somar",
+                                    "arguments": '{"a": 1, "b": 2}',
+                                }
+                            }
+                        ],
+                    }
+                }
+            ]
+        }
+
+    monkeypatch.setattr(llm, "_post_json", post_falso)
+    provedor = ProvedorOpenAI(base_url="https://exemplo.invalid/v1", api_key="chave-de-teste")
+
+    resposta = provedor.responder([Mensagem("user", "some 1 + 2")], [criar_ferramenta_soma()])
+
+    assert resposta.texto == ""
+    assert resposta.chamada == ChamadaFerramenta("somar", {"a": 1, "b": 2})
+
+
+def test_provedor_openai_rejeita_resposta_fora_do_formato(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(llm, "_post_json", lambda *args, **kwargs: {"choices": []})
+    provedor = ProvedorOpenAI(base_url="https://exemplo.invalid/v1", api_key="chave-de-teste")
+
+    with pytest.raises(RespostaInvalida, match="choices"):
+        provedor.responder([Mensagem("user", "oi")], [])
