@@ -4,7 +4,7 @@ Registro de origem dos datasets usados nas atividades. Atualize a cada atividade
 
 | Atividade | Arquivo | Origem (URL) | Licença | Baixado em | Como reproduzir |
 |---|---|---|---|---|---|
-| — | — | — | — | — | — |
+| 05–09 | `vendas` (DataFrame e tabela SQLite) | sintético, gerado em código | MIT (dados sintéticos) | — | `uv run python -c "from opencode_harness.dados import gerar_vendas; print(gerar_vendas(seed=42).shape)"` |
 
 ## Boas práticas
 
