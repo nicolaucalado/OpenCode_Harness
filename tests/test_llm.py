@@ -248,6 +248,9 @@ def test_ferramenta_aceita_number_e_rejeita_numero_em_string() -> None:
     with pytest.raises(ValueError, match="tipo inválido"):
         texto.executar({"v": 1})
 
+    with pytest.raises(ValueError, match="tipo inválido"):
+        numero.executar({"v": "10.5"})
+
 
 def test_agente_executa_multiplas_ferramentas_na_mesma_rodada() -> None:
     historicos: list[list[Mensagem]] = []
@@ -372,3 +375,66 @@ def test_provedor_openai_usa_endpoint_padrao(monkeypatch: pytest.MonkeyPatch) ->
 
     assert provedor.disponivel
     assert provedor.base_url == "https://api.openai.com/v1"
+
+
+def test_agente_devolve_erro_da_ferramenta_ao_modelo() -> None:
+    historicos: list[list[Mensagem]] = []
+
+    def explodir() -> None:
+        raise RuntimeError("banco fora do ar")
+
+    class ComErro:
+        def responder(
+            self,
+            mensagens: list[Mensagem],
+            ferramentas: list[Ferramenta],
+        ) -> Resposta:
+            historicos.append(list(mensagens))
+            if mensagens[-1].papel == "tool":
+                return Resposta(texto=f"falhou: {mensagens[-1].conteudo}")
+            return Resposta(chamada=ChamadaFerramenta("explodir"))
+
+    agente = Agente(ComErro(), [Ferramenta("explodir", "x", {}, explodir)])
+
+    resposta = agente.perguntar("consulte")
+
+    assert "RuntimeError: banco fora do ar" in resposta
+    resultado = next(mensagem for mensagem in historicos[-1] if mensagem.papel == "tool")
+    assert resultado.tool_call_id == "call_0_0"
+
+
+def test_agente_devolve_erro_de_resultado_nao_serializavel() -> None:
+    class ComObjeto:
+        def responder(
+            self,
+            mensagens: list[Mensagem],
+            ferramentas: list[Ferramenta],
+        ) -> Resposta:
+            if mensagens[-1].papel == "tool":
+                return Resposta(texto=mensagens[-1].conteudo)
+            return Resposta(chamada=ChamadaFerramenta("objeto"))
+
+    ferramenta = Ferramenta("objeto", "x", {}, object)
+    agente = Agente(ComObjeto(), [ferramenta])
+
+    resposta = agente.perguntar("me de um objeto")
+
+    assert "TypeError" in resposta
+    assert "não serializável" in resposta
+
+
+def test_provedor_openai_traduz_http_error(monkeypatch: pytest.MonkeyPatch) -> None:
+    def urlopen_que_falha(*args: Any, **kwargs: Any) -> Any:
+        raise llm.error.HTTPError(
+            "https://exemplo.invalid/v1/chat/completions",
+            401,
+            "Unauthorized",
+            {},
+            None,
+        )
+
+    monkeypatch.setattr(llm.request, "urlopen", urlopen_que_falha)
+    provedor = ProvedorOpenAI(base_url="https://exemplo.invalid/v1", api_key="chave")
+
+    with pytest.raises(ProvedorIndisponivel, match="HTTP 401"):
+        provedor.responder([Mensagem("user", "oi")], [])

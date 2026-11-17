@@ -242,11 +242,15 @@ class Agente:
                 if ferramenta is None:
                     raise FerramentaDesconhecida(f"ferramenta {chamada.nome!r} não registrada")
                 identificador = chamada.id or f"call_{passo}_{indice}"
-                resultado = ferramenta.executar(chamada.argumentos)
+                try:
+                    resultado = ferramenta.executar(chamada.argumentos)
+                    conteudo = _serializar(resultado)
+                except Exception as erro:
+                    # Erro de negócio ou resultado não serializável não derruba o agente: vira
+                    # resultado de ferramenta e o modelo explica, como manda a regra 5 do prompt.
+                    conteudo = _serializar({"erro": f"{type(erro).__name__}: {erro}"})
                 tool_calls.append(_tool_call(identificador, chamada))
-                resultados.append(
-                    Mensagem("tool", _serializar(resultado), tool_call_id=identificador)
-                )
+                resultados.append(Mensagem("tool", conteudo, tool_call_id=identificador))
 
             # O assistente precisa aparecer antes dos resultados, com os pedidos
             # estruturados: é o que o provedor real usa para casar tool_call_id.
@@ -375,7 +379,20 @@ def _mensagem_openai(mensagem: Mensagem) -> dict[str, Any]:
 
 
 def _serializar(valor: Any) -> str:
-    return json.dumps(valor, ensure_ascii=False, default=str, sort_keys=True)
+    """Serializa o resultado da ferramenta em JSON.
+
+    Escalas de numpy/pandas viram tipo nativo; objeto arbitrário levanta ``TypeError`` em vez
+    de virar string de depuração — o agente captura e devolve o erro ao modelo.
+    """
+    return json.dumps(valor, ensure_ascii=False, default=_para_json, sort_keys=True)
+
+
+def _para_json(valor: Any) -> Any:
+    if hasattr(valor, "item"):
+        return valor.item()
+    if isinstance(valor, (set, frozenset)):
+        return sorted(valor)
+    raise TypeError(f"resultado não serializável: {type(valor).__name__}")
 
 
 def _post_json(url: str, corpo: dict[str, Any], api_key: str, timeout: float) -> dict[str, Any]:
@@ -393,6 +410,9 @@ def _post_json(url: str, corpo: dict[str, Any], api_key: str, timeout: float) ->
             return json.loads(resposta.read().decode("utf-8"))
     except TimeoutError as erro:
         raise ProvedorIndisponivel(f"timeout ao chamar o provedor: {erro}") from erro
+    except error.HTTPError as erro:
+        # HTTPError é subclasse de URLError: precisa vir antes. Não inclui corpo nem chave.
+        raise ProvedorIndisponivel(f"provedor respondeu HTTP {erro.code}: {erro.reason}") from erro
     except error.URLError as erro:
         raise ProvedorIndisponivel(f"falha de conexão com o provedor: {erro}") from erro
     except json.JSONDecodeError as erro:
