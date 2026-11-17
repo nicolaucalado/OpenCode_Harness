@@ -225,3 +225,150 @@ def test_provedor_openai_rejeita_resposta_fora_do_formato(
 
     with pytest.raises(RespostaInvalida, match="choices"):
         provedor.responder([Mensagem("user", "oi")], [])
+
+
+def test_ferramenta_valida_tipo_dos_argumentos() -> None:
+    ferramenta = Ferramenta("contar", "x", {"n": "integer"}, lambda n: n)
+
+    with pytest.raises(ValueError, match="tipo inválido"):
+        ferramenta.executar({"n": "2"})
+    with pytest.raises(ValueError, match="tipo inválido"):
+        ferramenta.executar({"n": 2.5})
+    with pytest.raises(ValueError, match="tipo inválido"):
+        ferramenta.executar({"n": True})
+    assert ferramenta.executar({"n": 2}) == 2
+
+
+def test_ferramenta_aceita_number_e_rejeita_numero_em_string() -> None:
+    numero = Ferramenta("numero", "x", {"v": "number"}, lambda v: v)
+    assert numero.executar({"v": 2}) == 2
+    assert numero.executar({"v": 2.5}) == 2.5
+
+    texto = Ferramenta("texto", "x", {"v": "string"}, lambda v: v)
+    with pytest.raises(ValueError, match="tipo inválido"):
+        texto.executar({"v": 1})
+
+
+def test_agente_executa_multiplas_ferramentas_na_mesma_rodada() -> None:
+    historicos: list[list[Mensagem]] = []
+
+    class DuasChamadas:
+        def responder(
+            self,
+            mensagens: list[Mensagem],
+            ferramentas: list[Ferramenta],
+        ) -> Resposta:
+            historicos.append(list(mensagens))
+            if mensagens[-1].papel == "tool":
+                return Resposta(texto="pronto")
+            return Resposta(
+                chamadas=(
+                    ChamadaFerramenta("somar", {"a": 1, "b": 1}, id="c1"),
+                    ChamadaFerramenta("somar", {"a": 2, "b": 2}, id="c2"),
+                )
+            )
+
+    agente = Agente(DuasChamadas(), [criar_ferramenta_soma()])
+
+    assert agente.perguntar("some dois pares") == "pronto"
+
+    segunda = historicos[-1]
+    assistente = next(mensagem for mensagem in segunda if mensagem.papel == "assistant")
+    assert [chamada["id"] for chamada in assistente.tool_calls] == ["c1", "c2"]
+    ferramentas = [mensagem for mensagem in segunda if mensagem.papel == "tool"]
+    assert [mensagem.tool_call_id for mensagem in ferramentas] == ["c1", "c2"]
+
+
+def test_agente_gera_id_local_quando_provedor_nao_manda() -> None:
+    historicos: list[list[Mensagem]] = []
+
+    class SemId:
+        def responder(
+            self,
+            mensagens: list[Mensagem],
+            ferramentas: list[Ferramenta],
+        ) -> Resposta:
+            historicos.append(list(mensagens))
+            if any(mensagem.papel == "tool" for mensagem in mensagens):
+                return Resposta(texto="ok")
+            return Resposta(chamada=ChamadaFerramenta("somar", {"a": 1, "b": 2}))
+
+    agente = Agente(SemId(), [criar_ferramenta_soma()])
+
+    assert agente.perguntar("some") == "ok"
+    ferramenta = next(mensagem for mensagem in historicos[-1] if mensagem.papel == "tool")
+    assert ferramenta.tool_call_id == "call_0_0"
+
+
+def test_provedor_openai_interpreta_varias_chamadas(monkeypatch: pytest.MonkeyPatch) -> None:
+    def post_falso(url: str, corpo: dict[str, Any], api_key: str, timeout: float) -> dict:
+        return {
+            "choices": [
+                {
+                    "message": {
+                        "content": None,
+                        "tool_calls": [
+                            {
+                                "id": "c1",
+                                "function": {"name": "somar", "arguments": '{"a": 1, "b": 2}'},
+                            },
+                            {
+                                "id": "c2",
+                                "function": {"name": "somar", "arguments": '{"a": 3, "b": 4}'},
+                            },
+                        ],
+                    }
+                }
+            ]
+        }
+
+    monkeypatch.setattr(llm, "_post_json", post_falso)
+    provedor = ProvedorOpenAI(base_url="https://exemplo.invalid/v1", api_key="chave")
+
+    resposta = provedor.responder([Mensagem("user", "some")], [criar_ferramenta_soma()])
+
+    assert [chamada.id for chamada in resposta.chamadas] == ["c1", "c2"]
+    assert resposta.chamada is not None
+    assert resposta.chamada.id == "c1"
+
+
+def test_provedor_openai_envia_tool_call_id_e_estrutura(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    capturado: dict[str, Any] = {}
+
+    def post_falso(url: str, corpo: dict[str, Any], api_key: str, timeout: float) -> dict:
+        capturado.update(corpo)
+        return {"choices": [{"message": {"content": "fim"}}]}
+
+    monkeypatch.setattr(llm, "_post_json", post_falso)
+    provedor = ProvedorOpenAI(base_url="https://exemplo.invalid/v1", api_key="chave")
+    mensagens = [
+        Mensagem(
+            "assistant",
+            "",
+            tool_calls=(
+                {
+                    "id": "c1",
+                    "type": "function",
+                    "function": {"name": "somar", "arguments": "{}"},
+                },
+            ),
+        ),
+        Mensagem("tool", "3", tool_call_id="c1"),
+    ]
+
+    provedor.responder(mensagens, [])
+
+    assert capturado["messages"][0]["tool_calls"][0]["id"] == "c1"
+    assert capturado["messages"][0]["content"] is None
+    assert capturado["messages"][1]["tool_call_id"] == "c1"
+
+
+def test_provedor_openai_usa_endpoint_padrao(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv("OPENAI_BASE_URL", raising=False)
+
+    provedor = ProvedorOpenAI(api_key="chave")
+
+    assert provedor.disponivel
+    assert provedor.base_url == "https://api.openai.com/v1"

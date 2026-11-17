@@ -53,10 +53,17 @@ Regras:
 
 @dataclass(frozen=True)
 class Mensagem:
-    """Uma mensagem do histórico enviado ao provedor."""
+    """Uma mensagem do histórico enviado ao provedor.
+
+    ``tool_calls`` carrega os pedidos estruturados do assistente e ``tool_call_id`` liga o
+    resultado ao pedido — a API compatível com OpenAI exige esse vínculo, e texto puro não
+    basta.
+    """
 
     papel: str
     conteudo: str
+    tool_call_id: str | None = None
+    tool_calls: tuple[Mapping[str, Any], ...] = ()
 
     def __post_init__(self) -> None:
         if self.papel not in PAPEIS:
@@ -69,17 +76,23 @@ class ChamadaFerramenta:
 
     nome: str
     argumentos: Mapping[str, Any] = field(default_factory=dict)
+    id: str = ""
 
 
 @dataclass(frozen=True)
 class Resposta:
-    """Ou o modelo responde em texto, ou pede uma ferramenta — nunca os dois vazios."""
+    """Resposta em texto, pedido(s) de ferramenta — ou os dois, quando o modelo explica e age."""
 
     texto: str = ""
     chamada: ChamadaFerramenta | None = None
+    chamadas: tuple[ChamadaFerramenta, ...] = ()
 
     def __post_init__(self) -> None:
-        if not self.texto and self.chamada is None:
+        if self.chamada is not None and not self.chamadas:
+            object.__setattr__(self, "chamadas", (self.chamada,))
+        if self.chamadas and self.chamada is None:
+            object.__setattr__(self, "chamada", self.chamadas[0])
+        if not self.texto and not self.chamadas:
             raise ValueError("resposta precisa de texto ou de uma chamada de ferramenta")
 
 
@@ -119,12 +132,35 @@ def argumentos_invalidos(
 ) -> list[str]:
     """Lista o que está errado nos argumentos, sem executar nada.
 
-    Devolver a lista (em vez de lançar no meio) deixa o teste e a mensagem de erro
-    mostrarem **todos** os problemas de uma vez.
+    Além de nome faltando/sobrando, confere o tipo declarado no schema. Devolver a lista
+    (em vez de lançar no meio) deixa o teste e a mensagem de erro mostrarem **todos** os
+    problemas de uma vez.
     """
     problemas = [f"faltando: {nome}" for nome in esperados if nome not in recebidos]
     problemas.extend(f"desconhecido: {nome}" for nome in recebidos if nome not in esperados)
+    problemas.extend(
+        f"tipo inválido: {nome} (esperado {tipo})"
+        for nome, tipo in esperados.items()
+        if nome in recebidos and not _tipo_confere(recebidos[nome], tipo)
+    )
     return problemas
+
+
+def _tipo_confere(valor: Any, tipo: str) -> bool:
+    """Valida os tipos JSON usados nos schemas das ferramentas.
+
+    ``bool`` é subclasse de ``int`` em Python, então precisa ser excluído explicitamente —
+    senão ``True`` passaria como ``integer``.
+    """
+    if tipo == "integer":
+        return isinstance(valor, int) and not isinstance(valor, bool)
+    if tipo == "number":
+        return isinstance(valor, (int, float)) and not isinstance(valor, bool)
+    if tipo == "boolean":
+        return isinstance(valor, bool)
+    if tipo == "string":
+        return isinstance(valor, str)
+    return True  # tipo desconhecido no schema não bloqueia
 
 
 @dataclass(frozen=True)
@@ -194,18 +230,28 @@ class Agente:
         if self.sistema:
             mensagens.append(Mensagem("system", self.sistema))
         mensagens.append(Mensagem("user", pergunta))
-        for _ in range(self.max_passos):
+        for passo in range(self.max_passos):
             resposta = self.provedor.responder(mensagens, tuple(self.ferramentas.values()))
-            if resposta.chamada is None:
+            if not resposta.chamadas:
                 return resposta.texto
 
-            ferramenta = self.ferramentas.get(resposta.chamada.nome)
-            if ferramenta is None:
-                raise FerramentaDesconhecida(f"ferramenta {resposta.chamada.nome!r} não registrada")
+            tool_calls: list[Mapping[str, Any]] = []
+            resultados: list[Mensagem] = []
+            for indice, chamada in enumerate(resposta.chamadas):
+                ferramenta = self.ferramentas.get(chamada.nome)
+                if ferramenta is None:
+                    raise FerramentaDesconhecida(f"ferramenta {chamada.nome!r} não registrada")
+                identificador = chamada.id or f"call_{passo}_{indice}"
+                resultado = ferramenta.executar(chamada.argumentos)
+                tool_calls.append(_tool_call(identificador, chamada))
+                resultados.append(
+                    Mensagem("tool", _serializar(resultado), tool_call_id=identificador)
+                )
 
-            resultado = ferramenta.executar(resposta.chamada.argumentos)
-            mensagens.append(Mensagem("assistant", _descrever_chamada(resposta.chamada)))
-            mensagens.append(Mensagem("tool", _serializar(resultado)))
+            # O assistente precisa aparecer antes dos resultados, com os pedidos
+            # estruturados: é o que o provedor real usa para casar tool_call_id.
+            mensagens.append(Mensagem("assistant", resposta.texto, tool_calls=tuple(tool_calls)))
+            mensagens.extend(resultados)
 
         raise LimitePassosExcedido(f"agente não concluiu em {self.max_passos} passos")
 
@@ -264,14 +310,16 @@ class ProvedorOpenAI:
         timeout: float = 30.0,
     ) -> None:
         self.modelo = modelo or os.environ.get("OPENAI_MODEL", "gpt-4o-mini")
-        self.base_url = (base_url or os.environ.get("OPENAI_BASE_URL") or "").rstrip("/")
+        self.base_url = (
+            base_url or os.environ.get("OPENAI_BASE_URL") or "https://api.openai.com/v1"
+        ).rstrip("/")
         self.api_key = api_key or os.environ.get("OPENAI_API_KEY", "")
         self.timeout = timeout
 
     @property
     def disponivel(self) -> bool:
-        """Só dá para chamar de verdade com chave e URL configuradas."""
-        return bool(self.api_key and self.base_url)
+        """Só dá para chamar de verdade com chave configurada."""
+        return bool(self.api_key)
 
     def responder(
         self,
@@ -280,14 +328,12 @@ class ProvedorOpenAI:
     ) -> Resposta:
         if not self.disponivel:
             raise ProvedorIndisponivel(
-                "defina OPENAI_API_KEY e OPENAI_BASE_URL para usar o provedor real"
+                "defina OPENAI_API_KEY para usar o provedor real (ou use ProvedorFalso)"
             )
 
         corpo: dict[str, Any] = {
             "model": self.modelo,
-            "messages": [
-                {"role": mensagem.papel, "content": mensagem.conteudo} for mensagem in mensagens
-            ],
+            "messages": [_mensagem_openai(mensagem) for mensagem in mensagens],
         }
         if ferramentas:
             corpo["tools"] = [ferramenta.para_openai() for ferramenta in ferramentas]
@@ -306,8 +352,26 @@ def _registrar(ferramentas: Iterable[Ferramenta]) -> dict[str, Ferramenta]:
     return registro
 
 
-def _descrever_chamada(chamada: ChamadaFerramenta) -> str:
-    return f"[ferramenta] {chamada.nome}({_serializar(dict(chamada.argumentos))})"
+def _tool_call(identificador: str, chamada: ChamadaFerramenta) -> dict[str, Any]:
+    return {
+        "id": identificador,
+        "type": "function",
+        "function": {
+            "name": chamada.nome,
+            "arguments": json.dumps(dict(chamada.argumentos), ensure_ascii=False),
+        },
+    }
+
+
+def _mensagem_openai(mensagem: Mensagem) -> dict[str, Any]:
+    dados: dict[str, Any] = {"role": mensagem.papel, "content": mensagem.conteudo}
+    if mensagem.tool_calls:
+        dados["tool_calls"] = [dict(chamada) for chamada in mensagem.tool_calls]
+        if not mensagem.conteudo:
+            dados["content"] = None
+    if mensagem.tool_call_id:
+        dados["tool_call_id"] = mensagem.tool_call_id
+    return dados
 
 
 def _serializar(valor: Any) -> str:
@@ -327,8 +391,10 @@ def _post_json(url: str, corpo: dict[str, Any], api_key: str, timeout: float) ->
     try:
         with request.urlopen(requisicao, timeout=timeout) as resposta:
             return json.loads(resposta.read().decode("utf-8"))
-    except (error.URLError, TimeoutError) as erro:
-        raise ProvedorIndisponivel(f"falha ao chamar o provedor: {erro}") from erro
+    except TimeoutError as erro:
+        raise ProvedorIndisponivel(f"timeout ao chamar o provedor: {erro}") from erro
+    except error.URLError as erro:
+        raise ProvedorIndisponivel(f"falha de conexão com o provedor: {erro}") from erro
     except json.JSONDecodeError as erro:
         raise RespostaInvalida("provedor devolveu JSON inválido") from erro
 
@@ -339,16 +405,21 @@ def _interpretar(dados: Mapping[str, Any]) -> Resposta:
     except (KeyError, IndexError, TypeError) as erro:
         raise RespostaInvalida("resposta sem choices[0].message") from erro
 
-    chamadas = mensagem.get("tool_calls") or []
-    if not chamadas:
+    pedidos = mensagem.get("tool_calls") or []
+    if not pedidos:
         return Resposta(texto=mensagem.get("content") or "")
 
-    try:
-        funcao = chamadas[0]["function"]
-        argumentos = json.loads(funcao.get("arguments") or "{}")
-        nome = funcao["name"]
-    except (KeyError, TypeError, json.JSONDecodeError) as erro:
-        raise RespostaInvalida("tool_call fora do formato esperado") from erro
-    if not isinstance(argumentos, dict):
-        raise RespostaInvalida("argumentos da ferramenta precisam ser um objeto")
-    return Resposta(chamada=ChamadaFerramenta(nome=nome, argumentos=argumentos))
+    chamadas: list[ChamadaFerramenta] = []
+    for pedido in pedidos:
+        try:
+            funcao = pedido["function"]
+            argumentos = json.loads(funcao.get("arguments") or "{}")
+            nome = funcao["name"]
+            identificador = pedido.get("id") or ""
+        except (KeyError, TypeError, AttributeError, json.JSONDecodeError) as erro:
+            raise RespostaInvalida("tool_call fora do formato esperado") from erro
+        if not isinstance(argumentos, dict):
+            raise RespostaInvalida("argumentos da ferramenta precisam ser um objeto")
+        chamadas.append(ChamadaFerramenta(nome=nome, argumentos=argumentos, id=identificador))
+
+    return Resposta(chamadas=tuple(chamadas))
