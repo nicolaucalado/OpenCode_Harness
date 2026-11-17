@@ -7,6 +7,8 @@ generalização. O notebook compara o baseline com um ``DummyClassifier``.
 
 from __future__ import annotations
 
+from collections.abc import Sequence
+
 import pandas as pd
 from sklearn.compose import ColumnTransformer
 from sklearn.dummy import DummyClassifier
@@ -108,10 +110,19 @@ def treinar_baseline(
     alvo: pd.Series,
     seed: int = 42,
 ) -> Pipeline:
-    """Regressão logística com one-hot para categóricas e escala para numéricas."""
+    """Regressão logística com one-hot para categóricas e escala para numéricas.
+
+    O pré-processador usa apenas as colunas presentes em ``features``, então dá para
+    treinar com um subconjunto (a ablação do notebook tira ``quantidade``).
+    """
+    categoricas = [coluna for coluna in CATEGORICAS if coluna in features.columns]
+    numericas = [coluna for coluna in NUMERICAS if coluna in features.columns]
+    if not categoricas and not numericas:
+        raise ValueError("features precisa de pelo menos uma coluna conhecida")
+
     modelo = Pipeline(
         [
-            ("preparo", _criar_preprocessador()),
+            ("preparo", _criar_preprocessador(categoricas, numericas)),
             (
                 "modelo",
                 LogisticRegression(max_iter=1000, random_state=seed, solver="lbfgs"),
@@ -179,10 +190,17 @@ def importancias(modelo: Pipeline, top: int = 8) -> pd.DataFrame:
     )
 
 
-def _criar_preprocessador() -> ColumnTransformer:
-    return ColumnTransformer(
-        [
-            ("categoria", OneHotEncoder(handle_unknown="ignore"), list(CATEGORICAS)),
-            ("numero", StandardScaler(), list(NUMERICAS)),
-        ]
-    )
+def _criar_preprocessador(
+    categoricas: Sequence[str] = CATEGORICAS,
+    numericas: Sequence[str] = NUMERICAS,
+) -> ColumnTransformer:
+    transformadores: list[tuple[str, object, list[str]]] = []
+    if categoricas:
+        transformadores.append(
+            ("categoria", OneHotEncoder(handle_unknown="ignore"), list(categoricas))
+        )
+    if numericas:
+        transformadores.append(("numero", StandardScaler(), list(numericas)))
+    if not transformadores:
+        raise ValueError("pré-processador precisa de pelo menos uma coluna")
+    return ColumnTransformer(transformadores)

@@ -151,3 +151,25 @@ def test_modelo_lida_com_categoria_desconhecida(
     novo = x_teste.head(1).copy()
     novo.loc[novo.index[0], "categoria"] = "categoria-inexistente"
     assert modelo.predict(novo).tolist() in ([0], [1])
+
+
+def test_treinar_baseline_aceita_subconjunto_de_features(
+    dados: tuple[pd.DataFrame, pd.Series],
+) -> None:
+    features, alvo = dados
+    sem_quantidade = features.drop(columns=["quantidade"])
+    x_treino, x_teste, y_treino, y_teste = dividir(sem_quantidade, alvo)
+
+    modelo = treinar_baseline(x_treino, y_treino)
+    metricas = avaliar(modelo, x_teste, y_teste)
+
+    assert metricas["acuracia"] > 0.5
+    assert metricas["roc_auc"] > 0.5
+
+
+def test_treinar_baseline_rejeita_features_desconhecidas(
+    dados: tuple[pd.DataFrame, pd.Series],
+) -> None:
+    _, alvo = dados
+    with pytest.raises(ValueError, match="pelo menos uma coluna"):
+        treinar_baseline(pd.DataFrame({"desconhecida": range(len(alvo))}), alvo)
