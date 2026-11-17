@@ -49,7 +49,7 @@ Regras que valem para todas as atividades:
 | 5 | Estatística e Machine Learning | notebook com baseline + `random_state` fixo |
 | 6 | IA generativa, prompt engineering, agentes | chamadas de LLM isoladas em `src/` |
 | 7 | Projeto: detecção de anomalias | notebook + módulo de features + teste |
-| 8 | Projeto: DataPilot / assistente virtual | app ou notebook final + README de portfólio |
+| 8 | Projeto: Assistente Inteligente de Vendas | app ou notebook final + README de portfólio |
 
 ## Checklist de atividades
 
@@ -61,12 +61,16 @@ Copie a linha ao criar a issue. Marque `[x]` só depois do merge.
 | 02 | Estruturas de dados e funções | `dio/02-estruturas` | [x] |
 | 03 | POO e organização de código | `dio/03-poo` | [x] |
 | 04 | Banco de dados e SQL | `dio/04-sql` | [x] |
-| 05 | Análise exploratória de dados | `dio/05-eda` | [ ] |
-| 06 | Machine Learning — baseline | `dio/06-ml-baseline` | [ ] |
-| 07 | IA generativa e agentes | `dio/07-ia-agentes` | [ ] |
+| 05 | Análise exploratória de dados | `dio/05-eda` | [x] |
+| 06 | Machine Learning — baseline | `dio/06-ml-baseline` | [x] |
+| 07 | IA generativa e agentes | `dio/07-ia-agentes` | [x] |
 | 08 | Desafio: detecção de anomalias | `dio/08-anomalias` | [ ] |
-| 09 | Desafio: DataPilot / assistente | `dio/09-datapilot` | [ ] |
+| 09 | Projeto: Assistente Inteligente de Vendas | `dio/09-assistente-vendas` | [ ] |
 | 10 | README de portfólio + revisão final | `dio/10-portfolio` | [ ] |
+
+> O projeto de conclusão da trilha é o **Assistente Inteligente de Vendas**; problema, arquitetura
+> e trade-offs estão em [PROJETO-ASSISTENTE-VENDAS.md](PROJETO-ASSISTENTE-VENDAS.md). O desafio de
+> detecção de anomalias (08) continua no mapa como atividade separada.
 
 ## Prompts úteis no dia a dia
 

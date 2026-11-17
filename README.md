@@ -39,6 +39,7 @@ OpenCode_Harness/
 │   ├── SETUP.md                    # passo a passo completo
 │   ├── GITHUB-MCP.md               # MCP do GitHub
 │   ├── DIO-ROADMAP.md              # mapa da trilha + checklist
+│   ├── PROJETO-ASSISTENTE-VENDAS.md # arquitetura e decisões do projeto final
 │   ├── FACT-CHECK.md               # fontes e incertezas
 │   └── COPILOT-PROMPT.md           # prompt pronto para o Copilot
 ├── notebooks/                      # entregas da DIO
@@ -52,6 +53,24 @@ OpenCode_Harness/
 ├── opencode.jsonc                  # modelo, MCP e permissões
 └── pyproject.toml
 ```
+
+## Entregas da trilha
+
+| # | Atividade | Notebook | Código testado |
+|---|---|---|---|
+| 01 | Fundamentos de Python | [dio-01-python](notebooks/dio-01-python.ipynb) | `vendas.py` |
+| 02 | Estruturas de dados e funções | [dio-02-estruturas](notebooks/dio-02-estruturas.ipynb) | `texto.py`, `data.py` |
+| 03 | POO e organização de código | [dio-03-poo](notebooks/dio-03-poo.ipynb) | `contas.py` |
+| 04 | Banco de dados e SQL | [dio-04-sql](notebooks/dio-04-sql.ipynb) | `banco.py` |
+| 05 | Análise exploratória de dados | [dio-05-eda](notebooks/dio-05-eda.ipynb) | `dados.py` |
+| 06 | Machine Learning — baseline | [dio-06-ml-baseline](notebooks/dio-06-ml-baseline.ipynb) | `ml.py` |
+| 07 | IA generativa e agentes | [dio-07-ia-agentes](notebooks/dio-07-ia-agentes.ipynb) | `llm.py` |
+| — | **Projeto: Assistente Inteligente de Vendas** | [projeto-assistente-vendas](notebooks/projeto-assistente-vendas.ipynb) | `assistente.py` |
+
+O assistente responde perguntas de vendas em português sobre SQLite, com roteamento por
+intenção e fallback por agente. Problema, arquitetura e trade-offs:
+**[docs/PROJETO-ASSISTENTE-VENDAS.md](docs/PROJETO-ASSISTENTE-VENDAS.md)**.
+Todos os notebooks são commitados com saídas e rodam sem chave de API.
 
 ## Quickstart
 
@@ -150,6 +169,7 @@ no fluxo de tarefa é feito pelo **workflow**, não pelo agente.
 | [SETUP.md](docs/SETUP.md) | instalação, secrets, publicação, troubleshooting |
 | [GITHUB-MCP.md](docs/GITHUB-MCP.md) | MCP do GitHub, OAuth vs PAT, exemplos |
 | [DIO-ROADMAP.md](docs/DIO-ROADMAP.md) | trilha, plano de 8 semanas, critérios de portfólio |
+| [PROJETO-ASSISTENTE-VENDAS.md](docs/PROJETO-ASSISTENTE-VENDAS.md) | projeto final: problema, arquitetura, segurança e trade-offs |
 | [PROVIDERS.md](docs/PROVIDERS.md) | comparação de custo/limite e troca de modelo |
 | [DADOS.md](docs/DADOS.md) | origem e licença dos datasets |
 | [FACT-CHECK.md](docs/FACT-CHECK.md) | o que foi verificado, o que é incerteza |
