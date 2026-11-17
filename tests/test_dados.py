@@ -138,3 +138,58 @@ def test_para_sqlite_carrega_e_cria_indice() -> None:
 def test_para_sqlite_rejeita_coluna_ausente() -> None:
     with pytest.raises(SchemaError, match="receita"):
         para_sqlite(pd.DataFrame({"id": [1]}))
+
+
+def _venda(**alteracoes: object) -> dict[str, object]:
+    base: dict[str, object] = {
+        "id": 1,
+        "data": "2026-01-10",
+        "cliente": "Cliente 001",
+        "uf": "SP",
+        "produto": "mouse",
+        "categoria": "perifericos",
+        "canal": "online",
+        "quantidade": 1,
+        "preco_unitario": 80.0,
+        "desconto_pct": 0,
+        "receita": 80.0,
+    }
+    base.update(alteracoes)
+    return base
+
+
+def test_limpar_vendas_descarta_desconto_e_quantidade_invalidos() -> None:
+    bruto = pd.DataFrame(
+        [
+            _venda(id=1, desconto_pct=150),
+            _venda(id=2, desconto_pct=-10),
+            _venda(id=3, quantidade=0),
+            _venda(id=4, preco_unitario=-5.0),
+            _venda(id=5, preco_unitario=80.0),
+        ]
+    )
+
+    limpo = limpar_vendas(bruto)
+
+    assert list(limpo["id"]) == [5]
+
+
+def test_limpar_vendas_descarta_linha_sem_data_ou_cliente() -> None:
+    bruto = pd.DataFrame(
+        [
+            _venda(id=1, data=None),
+            _venda(id=2, cliente=None),
+            _venda(id=3),
+        ]
+    )
+
+    limpo = limpar_vendas(bruto)
+
+    assert list(limpo["id"]) == [3]
+
+
+def test_limpar_vendas_aceita_dataframe_vazio() -> None:
+    limpo = limpar_vendas(pd.DataFrame(columns=list(COLUNAS)))
+
+    assert limpo.empty
+    assert list(limpo.columns) == list(COLUNAS)
