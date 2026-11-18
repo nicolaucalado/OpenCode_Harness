@@ -40,6 +40,14 @@ def test_formatar_moeda_usa_padrao_brasileiro() -> None:
     assert formatar_moeda(1234.5) == "R$ 1.234,50"
     assert formatar_moeda(0) == "R$ 0,00"
     assert formatar_moeda(1234567.891) == "R$ 1.234.567,89"
+    assert formatar_moeda(-1234.5) == "R$ -1.234,50"
+    assert formatar_moeda(9876543210.12) == "R$ 9.876.543.210,12"
+
+
+def test_criar_banco_bloqueia_escrita(conn: sqlite3.Connection) -> None:
+    with pytest.raises(sqlite3.OperationalError, match="readonly"):
+        conn.execute("DELETE FROM vendas")
+    assert receita_total(conn)["vendas"] > 0  # leitura continua funcionando
 
 
 @pytest.mark.parametrize(

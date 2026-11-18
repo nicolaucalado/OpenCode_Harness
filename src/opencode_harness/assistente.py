@@ -109,8 +109,15 @@ def formatar_moeda(valor: float) -> str:
 
 
 def criar_banco(vendas: pd.DataFrame) -> sqlite3.Connection:
-    """Carrega as vendas limpas em SQLite (em memória) e devolve a conexão."""
-    return para_sqlite(vendas)
+    """Carrega as vendas limpas em SQLite (em memória) e devolve conexão somente leitura.
+
+    O assistente nunca precisa escrever: depois da carga, ``query_only`` bloqueia qualquer
+    ``INSERT``/``UPDATE``/``DELETE`` na conexão. É a terceira barreira, além da whitelist de
+    ferramentas e da validação de argumentos.
+    """
+    conn = para_sqlite(vendas)
+    conn.execute("PRAGMA query_only = ON")
+    return conn
 
 
 def receita_total(conn: sqlite3.Connection) -> dict[str, float | int]:

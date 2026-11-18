@@ -118,6 +118,8 @@ inventa número.
 - Nenhuma ferramenta recebe SQL, caminho de arquivo ou shell.
 - Argumentos são validados contra o schema da `Ferramenta` antes da execução.
 - Consultas usam parâmetros (`?`), nunca interpolação de string.
+- `criar_banco` liga `PRAGMA query_only`: a conexão do assistente é somente leitura, então
+  `INSERT`/`UPDATE`/`DELETE` falham mesmo se alguma consulta futura escapar da whitelist.
 - O provedor real lê a chave de ambiente e nunca a devolve em mensagem de erro.
 - O agente tem `max_passos=3`: provedor teimoso não gera loop infinito.
 
