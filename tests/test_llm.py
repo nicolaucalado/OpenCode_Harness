@@ -444,8 +444,12 @@ def test_provedor_openai_traduz_http_error(monkeypatch: pytest.MonkeyPatch) -> N
     monkeypatch.setattr(llm.request, "urlopen", urlopen_que_falha)
     provedor = ProvedorOpenAI(base_url="https://exemplo.invalid/v1", api_key="chave")
 
-    with pytest.raises(ProvedorIndisponivel, match="HTTP 401"):
+    with pytest.raises(ProvedorIndisponivel, match="HTTP 401") as capturado:
         provedor.responder([Mensagem("user", "oi")], [])
+
+    mensagem = str(capturado.value)
+    assert "chave" not in mensagem
+    assert "Authorization" not in mensagem
 
 
 def test_provedor_openai_inclui_corpo_do_http_error(monkeypatch: pytest.MonkeyPatch) -> None:
