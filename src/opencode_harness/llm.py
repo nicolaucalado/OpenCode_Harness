@@ -257,7 +257,7 @@ class Agente:
                 try:
                     resultado = ferramenta.executar(chamada.argumentos)
                     conteudo = _serializar(resultado)
-                except MemoryError:
+                except (MemoryError, RecursionError):
                     raise  # falha de sistema não vira resposta de chatbot
                 except Exception as erro:
                     # Erro de negócio ou resultado não serializável não derruba o agente: vira
@@ -506,5 +506,7 @@ def _detalhe_corpo_http(erro: error.HTTPError) -> str:
             detalhe = dados.get("error")
             if isinstance(detalhe, Mapping) and isinstance(detalhe.get("message"), str):
                 mensagem = detalhe["message"]
+            elif isinstance(detalhe, str):
+                mensagem = detalhe
     mensagem = " ".join(mensagem.split())[:300]
     return f" ({mensagem})" if mensagem else ""

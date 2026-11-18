@@ -465,6 +465,23 @@ def test_provedor_openai_inclui_corpo_do_http_error(monkeypatch: pytest.MonkeyPa
         provedor.responder([Mensagem("user", "oi")], [])
 
 
+def test_provedor_openai_inclui_erro_em_string_simples(monkeypatch: pytest.MonkeyPatch) -> None:
+    def urlopen_que_falha(*args: Any, **kwargs: Any) -> Any:
+        raise llm.error.HTTPError(
+            "https://exemplo.invalid/v1/chat/completions",
+            429,
+            "Too Many Requests",
+            {},
+            io.BytesIO(b'{"error": "cota excedida"}'),
+        )
+
+    monkeypatch.setattr(llm.request, "urlopen", urlopen_que_falha)
+    provedor = ProvedorOpenAI(base_url="https://exemplo.invalid/v1", api_key="chave")
+
+    with pytest.raises(ProvedorIndisponivel, match="cota excedida"):
+        provedor.responder([Mensagem("user", "oi")], [])
+
+
 def test_agente_devolve_erro_de_schema_ao_modelo() -> None:
     # Contrato quebrado não derruba o loop: o modelo vê o erro e pode corrigir os argumentos.
     class ComSchemaErrado:
@@ -578,6 +595,24 @@ def test_agente_propaga_memory_error() -> None:
     agente = Agente(Teimoso(), [Ferramenta("sem_memoria", "x", {}, sem_memoria)])
 
     with pytest.raises(MemoryError):
+        agente.perguntar("consulte")
+
+
+def test_agente_propaga_recursion_error() -> None:
+    def recursiva() -> None:
+        raise RecursionError("profundo demais")
+
+    class Teimoso:
+        def responder(
+            self,
+            mensagens: list[Mensagem],
+            ferramentas: list[Ferramenta],
+        ) -> Resposta:
+            return Resposta(chamada=ChamadaFerramenta("recursiva"))
+
+    agente = Agente(Teimoso(), [Ferramenta("recursiva", "x", {}, recursiva)])
+
+    with pytest.raises(RecursionError):
         agente.perguntar("consulte")
 
 
