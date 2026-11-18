@@ -513,6 +513,29 @@ def test_ferramenta_rejeita_nan_e_infinito() -> None:
         numero.executar({"v": float("inf")})
 
 
+def test_ferramenta_rejeita_tipo_desconhecido_no_schema() -> None:
+    with pytest.raises(ValueError, match="tipo inválido para 'v'"):
+        Ferramenta("x", "x", {"v": "stringg"}, lambda v: v)
+
+
+def test_agente_propaga_memory_error() -> None:
+    def sem_memoria() -> None:
+        raise MemoryError("acabou a memoria")
+
+    class Teimoso:
+        def responder(
+            self,
+            mensagens: list[Mensagem],
+            ferramentas: list[Ferramenta],
+        ) -> Resposta:
+            return Resposta(chamada=ChamadaFerramenta("sem_memoria"))
+
+    agente = Agente(Teimoso(), [Ferramenta("sem_memoria", "x", {}, sem_memoria)])
+
+    with pytest.raises(MemoryError):
+        agente.perguntar("consulte")
+
+
 def test_provedor_openai_inclui_mensagem_de_erro_da_api(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

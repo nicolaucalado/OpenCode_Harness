@@ -40,6 +40,8 @@ __all__ = [
 
 PAPEIS = ("system", "user", "assistant", "tool")
 
+TIPOS_SUPORTADOS = ("integer", "number", "boolean", "string")
+
 PROMPT_SISTEMA = """\
 Você é um analista de vendas que responde em português do Brasil, de forma curta e direta.
 
@@ -164,7 +166,7 @@ def _tipo_confere(valor: Any, tipo: str) -> bool:
         return isinstance(valor, bool)
     if tipo == "string":
         return isinstance(valor, str)
-    return True  # tipo desconhecido no schema não bloqueia
+    return False  # tipo fora do schema suportado nunca valida
 
 
 @dataclass(frozen=True)
@@ -179,6 +181,12 @@ class Ferramenta:
     def __post_init__(self) -> None:
         if not self.nome.isidentifier():
             raise ValueError(f"nome de ferramenta inválido: {self.nome!r}")
+        for parametro, tipo in self.parametros.items():
+            if tipo not in TIPOS_SUPORTADOS:
+                raise ValueError(
+                    f"tipo inválido para {parametro!r}: {tipo!r} "
+                    f"(use {', '.join(TIPOS_SUPORTADOS)})"
+                )
 
     def executar(self, argumentos: Mapping[str, Any]) -> Any:
         """Valida o schema e chama a função; erro de argumento não chega ao banco."""
@@ -249,6 +257,8 @@ class Agente:
                 try:
                     resultado = ferramenta.executar(chamada.argumentos)
                     conteudo = _serializar(resultado)
+                except MemoryError:
+                    raise  # falha de sistema não vira resposta de chatbot
                 except Exception as erro:
                     # Erro de negócio ou resultado não serializável não derruba o agente: vira
                     # resultado de ferramenta e o modelo explica, como manda a regra 5 do prompt.
