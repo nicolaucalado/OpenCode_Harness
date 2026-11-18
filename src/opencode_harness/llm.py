@@ -13,6 +13,7 @@ mesmo princípio que o assistente de vendas do projeto final usa.
 from __future__ import annotations
 
 import json
+import math
 import os
 from collections.abc import Callable, Iterable, Mapping, Sequence
 from dataclasses import dataclass, field
@@ -150,12 +151,15 @@ def _tipo_confere(valor: Any, tipo: str) -> bool:
     """Valida os tipos JSON usados nos schemas das ferramentas.
 
     ``bool`` é subclasse de ``int`` em Python, então precisa ser excluído explicitamente —
-    senão ``True`` passaria como ``integer``.
+    senão ``True`` passaria como ``integer``. ``NaN`` e ``inf`` também são recusados: não
+    existem em JSON e quebrariam a serialização de volta.
     """
     if tipo == "integer":
         return isinstance(valor, int) and not isinstance(valor, bool)
     if tipo == "number":
-        return isinstance(valor, (int, float)) and not isinstance(valor, bool)
+        if not isinstance(valor, (int, float)) or isinstance(valor, bool):
+            return False
+        return math.isfinite(valor)
     if tipo == "boolean":
         return isinstance(valor, bool)
     if tipo == "string":
@@ -287,7 +291,14 @@ class ProvedorFalso:
             raise SemResposta("histórico vazio")
         ultima = mensagens[-1]
         if ultima.papel == "tool":
-            return Resposta(texto=self.finalizador(ultima.conteudo))
+            # Numa rodada com várias ferramentas, o histórico termina com vários resultados
+            # seguidos; o finalizador recebe todos, não só o último.
+            resultados: list[str] = []
+            for mensagem in reversed(mensagens):
+                if mensagem.papel != "tool":
+                    break
+                resultados.append(mensagem.conteudo)
+            return Resposta(texto=self.finalizador(" | ".join(reversed(resultados))))
 
         pergunta = ultima.conteudo.lower()
         for chave, resposta in self.regras:
@@ -423,7 +434,9 @@ def _interpretar(dados: Mapping[str, Any]) -> Resposta:
     try:
         mensagem = dados["choices"][0]["message"]
     except (KeyError, IndexError, TypeError) as erro:
-        raise RespostaInvalida("resposta sem choices[0].message") from erro
+        raise RespostaInvalida(
+            f"resposta sem choices[0].message{_detalhe_erro_api(dados)}"
+        ) from erro
 
     pedidos = mensagem.get("tool_calls") or []
     if not pedidos:
@@ -438,8 +451,18 @@ def _interpretar(dados: Mapping[str, Any]) -> Resposta:
             identificador = pedido.get("id") or ""
         except (KeyError, TypeError, AttributeError, json.JSONDecodeError) as erro:
             raise RespostaInvalida("tool_call fora do formato esperado") from erro
+        if argumentos is None:
+            argumentos = {}  # a API pode mandar "null" para ferramenta sem argumento
         if not isinstance(argumentos, dict):
             raise RespostaInvalida("argumentos da ferramenta precisam ser um objeto")
         chamadas.append(ChamadaFerramenta(nome=nome, argumentos=argumentos, id=identificador))
 
     return Resposta(chamadas=tuple(chamadas))
+
+
+def _detalhe_erro_api(dados: Mapping[str, Any]) -> str:
+    """Extrai a mensagem de erro do provedor, sem despejar o corpo inteiro na exceção."""
+    erro = dados.get("error") if isinstance(dados, Mapping) else None
+    if isinstance(erro, Mapping) and erro.get("message"):
+        return f": {erro['message']}"
+    return ""

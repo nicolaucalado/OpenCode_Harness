@@ -438,3 +438,72 @@ def test_provedor_openai_traduz_http_error(monkeypatch: pytest.MonkeyPatch) -> N
 
     with pytest.raises(ProvedorIndisponivel, match="HTTP 401"):
         provedor.responder([Mensagem("user", "oi")], [])
+
+
+def test_provedor_openai_traduz_timeout(monkeypatch: pytest.MonkeyPatch) -> None:
+    def urlopen_que_estoura(*args: Any, **kwargs: Any) -> Any:
+        raise TimeoutError("demorou")
+
+    monkeypatch.setattr(llm.request, "urlopen", urlopen_que_estoura)
+    provedor = ProvedorOpenAI(base_url="https://exemplo.invalid/v1", api_key="chave")
+
+    with pytest.raises(ProvedorIndisponivel, match="timeout"):
+        provedor.responder([Mensagem("user", "oi")], [])
+
+
+def test_provedor_falso_finaliza_com_todos_os_resultados_da_rodada() -> None:
+    provedor = ProvedorFalso(finalizador=lambda conteudo: conteudo)
+    mensagens = [
+        Mensagem("user", "some"),
+        Mensagem("assistant", "", tool_calls=({"id": "c1"}, {"id": "c2"})),
+        Mensagem("tool", "3", tool_call_id="c1"),
+        Mensagem("tool", "7", tool_call_id="c2"),
+    ]
+
+    resposta = provedor.responder(mensagens, [])
+
+    assert resposta.texto == "3 | 7"
+
+
+def test_ferramenta_rejeita_nan_e_infinito() -> None:
+    numero = Ferramenta("numero", "x", {"v": "number"}, lambda v: v)
+
+    with pytest.raises(ValueError, match="tipo inválido"):
+        numero.executar({"v": float("nan")})
+    with pytest.raises(ValueError, match="tipo inválido"):
+        numero.executar({"v": float("inf")})
+
+
+def test_provedor_openai_inclui_mensagem_de_erro_da_api(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(
+        llm, "_post_json", lambda *args, **kwargs: {"error": {"message": "cota excedida"}}
+    )
+    provedor = ProvedorOpenAI(base_url="https://exemplo.invalid/v1", api_key="chave")
+
+    with pytest.raises(RespostaInvalida, match="cota excedida"):
+        provedor.responder([Mensagem("user", "oi")], [])
+
+
+def test_provedor_openai_normaliza_argumentos_nulos(monkeypatch: pytest.MonkeyPatch) -> None:
+    def post_falso(url: str, corpo: dict[str, Any], api_key: str, timeout: float) -> dict:
+        return {
+            "choices": [
+                {
+                    "message": {
+                        "content": None,
+                        "tool_calls": [
+                            {"id": "c1", "function": {"name": "somar", "arguments": "null"}}
+                        ],
+                    }
+                }
+            ]
+        }
+
+    monkeypatch.setattr(llm, "_post_json", post_falso)
+    provedor = ProvedorOpenAI(base_url="https://exemplo.invalid/v1", api_key="chave")
+
+    resposta = provedor.responder([Mensagem("user", "some")], [criar_ferramenta_soma()])
+
+    assert resposta.chamada == ChamadaFerramenta("somar", {}, id="c1")
