@@ -65,7 +65,7 @@ Copie a linha ao criar a issue. Marque `[x]` só depois do merge.
 | 06 | Machine Learning — baseline | `dio/06-ml-baseline` | [x] |
 | 07 | IA generativa e agentes | `dio/07-ia-agentes` | [x] |
 | 08 | Desafio: detecção de anomalias | `dio/08-anomalias` | [ ] |
-| 09 | Projeto: Assistente Inteligente de Vendas | `dio/09-assistente-vendas` | [ ] |
+| 09 | Projeto: Assistente Inteligente de Vendas | `dio/09-assistente-vendas` | [x] |
 | 10 | README de portfólio + revisão final | `dio/10-portfolio` | [ ] |
 
 > O projeto de conclusão da trilha é o **Assistente Inteligente de Vendas**; problema, arquitetura
