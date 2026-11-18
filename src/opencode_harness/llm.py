@@ -310,6 +310,9 @@ class ProvedorFalso:
                 resultados.append(mensagem.conteudo)
             return Resposta(texto=self.finalizador(" | ".join(reversed(resultados))))
 
+        if ultima.papel != "user":
+            raise SemResposta(f"última mensagem não é do usuário: {ultima.papel!r}")
+
         pergunta = ultima.conteudo.lower()
         for chave, resposta in self.regras:
             if chave in pergunta:
@@ -439,9 +442,11 @@ def _post_json(url: str, corpo: dict[str, Any], api_key: str, timeout: float) ->
         ) from erro
     except error.URLError as erro:
         # Timeout de socket chega embrulhado em URLError.reason, não como TimeoutError direto.
-        if isinstance(getattr(erro, "reason", None), TimeoutError):
-            raise ProvedorIndisponivel(f"timeout ao chamar o provedor: {erro.reason}") from erro
-        raise ProvedorIndisponivel(f"falha de conexão com o provedor: {erro}") from erro
+        # Usa só o motivo (sem a URL/objeto da requisição) para não expor detalhe de transporte.
+        motivo = getattr(erro, "reason", None)
+        if isinstance(motivo, TimeoutError):
+            raise ProvedorIndisponivel(f"timeout ao chamar o provedor: {motivo}") from erro
+        raise ProvedorIndisponivel(f"falha de conexão com o provedor: {motivo or erro}") from erro
     except json.JSONDecodeError as erro:
         raise RespostaInvalida("provedor devolveu JSON inválido") from erro
 

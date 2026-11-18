@@ -169,6 +169,13 @@ def test_provedor_falso_sem_regra_e_sem_padrao_avisa() -> None:
         agente.perguntar("pergunta sem regra")
 
 
+def test_provedor_falso_exige_pergunta_do_usuario_no_fim() -> None:
+    provedor = ProvedorFalso(padrao="ok")
+
+    with pytest.raises(SemResposta, match="não é do usuário"):
+        provedor.responder([Mensagem("assistant", "texto antigo")], [])
+
+
 def test_provedor_falso_casa_palavra_chave_ignorando_caixa() -> None:
     provedor = ProvedorFalso(
         regras=[
