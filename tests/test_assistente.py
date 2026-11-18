@@ -64,6 +64,9 @@ def test_criar_banco_bloqueia_escrita(conn: sqlite3.Connection) -> None:
         ("Quantas vendas temos?", "contagem"),
         ("Me dê um resumo", "resumo"),
         ("Qual a cor do céu?", None),
+        ("", None),
+        ("   ", None),
+        ("???", None),
     ],
 )
 def test_detectar_intencao(pergunta: str, esperado: str | None) -> None:
