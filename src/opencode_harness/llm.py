@@ -110,7 +110,7 @@ class Provedor(Protocol):
 
 
 class ProvedorIndisponivel(RuntimeError):
-    """O provedor real não está configurado (sem chave, sem rede ou resposta inválida)."""
+    """O provedor não respondeu: sem chave, sem rede, timeout ou HTTP de erro."""
 
 
 class SemResposta(ProvedorIndisponivel):
@@ -432,8 +432,11 @@ def _post_json(url: str, corpo: dict[str, Any], api_key: str, timeout: float) ->
     except TimeoutError as erro:
         raise ProvedorIndisponivel(f"timeout ao chamar o provedor: {erro}") from erro
     except error.HTTPError as erro:
-        # HTTPError é subclasse de URLError: precisa vir antes. Não inclui corpo nem chave.
-        raise ProvedorIndisponivel(f"provedor respondeu HTTP {erro.code}: {erro.reason}") from erro
+        # HTTPError é subclasse de URLError: precisa vir antes. O corpo traz o motivo real da
+        # recusa (chave inválida, schema, contexto), então vale ler — sem ecoar a chave.
+        raise ProvedorIndisponivel(
+            f"provedor respondeu HTTP {erro.code}: {erro.reason}{_detalhe_corpo_http(erro)}"
+        ) from erro
     except error.URLError as erro:
         # Timeout de socket chega embrulhado em URLError.reason, não como TimeoutError direto.
         if isinstance(getattr(erro, "reason", None), TimeoutError):
@@ -480,3 +483,23 @@ def _detalhe_erro_api(dados: Mapping[str, Any]) -> str:
     if isinstance(erro, Mapping) and erro.get("message"):
         return f": {erro['message']}"
     return ""
+
+
+def _detalhe_corpo_http(erro: error.HTTPError) -> str:
+    """Lê o corpo do HTTPError e devolve a mensagem curta, se houver."""
+    try:
+        corpo = erro.read().decode("utf-8", errors="replace")
+    except Exception:
+        return ""
+    mensagem = ""
+    try:
+        dados = json.loads(corpo)
+    except json.JSONDecodeError:
+        mensagem = corpo
+    else:
+        if isinstance(dados, Mapping):
+            detalhe = dados.get("error")
+            if isinstance(detalhe, Mapping) and isinstance(detalhe.get("message"), str):
+                mensagem = detalhe["message"]
+    mensagem = " ".join(mensagem.split())[:300]
+    return f" ({mensagem})" if mensagem else ""

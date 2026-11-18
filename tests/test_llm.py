@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import io
 from typing import Any
 
 import pytest
@@ -438,6 +439,43 @@ def test_provedor_openai_traduz_http_error(monkeypatch: pytest.MonkeyPatch) -> N
 
     with pytest.raises(ProvedorIndisponivel, match="HTTP 401"):
         provedor.responder([Mensagem("user", "oi")], [])
+
+
+def test_provedor_openai_inclui_corpo_do_http_error(monkeypatch: pytest.MonkeyPatch) -> None:
+    def urlopen_que_falha(*args: Any, **kwargs: Any) -> Any:
+        raise llm.error.HTTPError(
+            "https://exemplo.invalid/v1/chat/completions",
+            400,
+            "Bad Request",
+            {},
+            io.BytesIO(b'{"error": {"message": "schema invalido"}}'),
+        )
+
+    monkeypatch.setattr(llm.request, "urlopen", urlopen_que_falha)
+    provedor = ProvedorOpenAI(base_url="https://exemplo.invalid/v1", api_key="chave")
+
+    with pytest.raises(ProvedorIndisponivel, match="schema invalido"):
+        provedor.responder([Mensagem("user", "oi")], [])
+
+
+def test_agente_devolve_erro_de_schema_ao_modelo() -> None:
+    # Contrato quebrado não derruba o loop: o modelo vê o erro e pode corrigir os argumentos.
+    class ComSchemaErrado:
+        def responder(
+            self,
+            mensagens: list[Mensagem],
+            ferramentas: list[Ferramenta],
+        ) -> Resposta:
+            if mensagens[-1].papel == "tool":
+                return Resposta(texto=mensagens[-1].conteudo)
+            return Resposta(chamada=ChamadaFerramenta("contar", {"n": "dois"}))
+
+    ferramenta = Ferramenta("contar", "x", {"n": "integer"}, lambda n: n)
+    agente = Agente(ComSchemaErrado(), [ferramenta])
+
+    resposta = agente.perguntar("conte")
+
+    assert "tipo inválido" in resposta
 
 
 def test_provedor_openai_traduz_timeout(monkeypatch: pytest.MonkeyPatch) -> None:
