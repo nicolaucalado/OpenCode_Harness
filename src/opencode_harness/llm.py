@@ -425,6 +425,9 @@ def _post_json(url: str, corpo: dict[str, Any], api_key: str, timeout: float) ->
         # HTTPError é subclasse de URLError: precisa vir antes. Não inclui corpo nem chave.
         raise ProvedorIndisponivel(f"provedor respondeu HTTP {erro.code}: {erro.reason}") from erro
     except error.URLError as erro:
+        # Timeout de socket chega embrulhado em URLError.reason, não como TimeoutError direto.
+        if isinstance(getattr(erro, "reason", None), TimeoutError):
+            raise ProvedorIndisponivel(f"timeout ao chamar o provedor: {erro.reason}") from erro
         raise ProvedorIndisponivel(f"falha de conexão com o provedor: {erro}") from erro
     except json.JSONDecodeError as erro:
         raise RespostaInvalida("provedor devolveu JSON inválido") from erro
@@ -457,7 +460,8 @@ def _interpretar(dados: Mapping[str, Any]) -> Resposta:
             raise RespostaInvalida("argumentos da ferramenta precisam ser um objeto")
         chamadas.append(ChamadaFerramenta(nome=nome, argumentos=argumentos, id=identificador))
 
-    return Resposta(chamadas=tuple(chamadas))
+    # Texto e chamadas podem coexistir: preservar o texto evita perder o raciocínio do modelo.
+    return Resposta(texto=mensagem.get("content") or "", chamadas=tuple(chamadas))
 
 
 def _detalhe_erro_api(dados: Mapping[str, Any]) -> str:

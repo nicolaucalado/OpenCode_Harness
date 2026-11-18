@@ -451,6 +451,45 @@ def test_provedor_openai_traduz_timeout(monkeypatch: pytest.MonkeyPatch) -> None
         provedor.responder([Mensagem("user", "oi")], [])
 
 
+def test_provedor_openai_traduz_timeout_embrulhado_em_urlerror(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def urlopen_que_estoura(*args: Any, **kwargs: Any) -> Any:
+        raise llm.error.URLError(TimeoutError("timed out"))
+
+    monkeypatch.setattr(llm.request, "urlopen", urlopen_que_estoura)
+    provedor = ProvedorOpenAI(base_url="https://exemplo.invalid/v1", api_key="chave")
+
+    with pytest.raises(ProvedorIndisponivel, match="timeout"):
+        provedor.responder([Mensagem("user", "oi")], [])
+
+
+def test_provedor_openai_preserva_texto_junto_da_chamada(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def post_falso(url: str, corpo: dict[str, Any], api_key: str, timeout: float) -> dict:
+        return {
+            "choices": [
+                {
+                    "message": {
+                        "content": "vou consultar",
+                        "tool_calls": [
+                            {"id": "c1", "function": {"name": "somar", "arguments": "{}"}}
+                        ],
+                    }
+                }
+            ]
+        }
+
+    monkeypatch.setattr(llm, "_post_json", post_falso)
+    provedor = ProvedorOpenAI(base_url="https://exemplo.invalid/v1", api_key="chave")
+
+    resposta = provedor.responder([Mensagem("user", "some")], [criar_ferramenta_soma()])
+
+    assert resposta.texto == "vou consultar"
+    assert resposta.chamada == ChamadaFerramenta("somar", {}, id="c1")
+
+
 def test_provedor_falso_finaliza_com_todos_os_resultados_da_rodada() -> None:
     provedor = ProvedorFalso(finalizador=lambda conteudo: conteudo)
     mensagens = [
