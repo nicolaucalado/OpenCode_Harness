@@ -84,6 +84,7 @@ docs/                   documentação, roadmap do bootcamp e fact-checks
 - Não leia nem escreva `.env`, chaves de API, tokens ou credenciais. Use `.env.example` para documentação.
 - Não altere `.github/`, `opencode.jsonc` nem `pyproject.toml` sem autorização explícita do usuário.
 - Não execute `git push`, `git reset --hard`, `git clean` ou `gh pr merge`.
+- **Não escreva nem rode scripts para ler, baixar ou raspar páginas.** Para pesquisa, use a busca nativa do harness ou o You.com via MCP; se nenhuma estiver disponível, avise o estudante e responda só com o que você sabe.
 - **Antes de concluir qualquer tarefa de código**, execute:
   ```bash
   uv run pytest -q

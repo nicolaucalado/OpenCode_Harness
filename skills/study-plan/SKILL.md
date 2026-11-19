@@ -35,7 +35,7 @@ O perfil é importante: quanto melhor você o conhece, mais simples e executáve
 
 O plano precisa seguir os módulos reais da trilha, não o seu conhecimento geral do tema. Mas conseguir esses módulos tem que ser barato e rápido.
 
-> IMPORTANTE: **Nunca escreva nem rode scripts para ler, baixar ou raspar a página** (veja a regra 8 do `AGENTS.md`). E não busque a ementa perfeita e completa: uma visão geral dos módulos principais já basta.
+> IMPORTANTE: **Nunca escreva nem rode scripts para ler, baixar ou raspar a página** (veja as regras de segurança do `AGENTS.md`). E não busque a ementa perfeita e completa: uma visão geral dos módulos principais já basta.
 
 Siga esta ordem e pare assim que tiver os módulos:
 
